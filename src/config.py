@@ -10,6 +10,8 @@ class SystemMessages:
     register_button_text: str
     question_intro: str
     skip_question_button_text: str
+    unknown_message: str
+    start_command_description: str
 
 
 @dataclass
@@ -33,7 +35,7 @@ class Config:
         return user_id in self.admin_ids
 
     def is_admin_context(self, chat_id: int, user_id: int) -> bool:
-        """Check valid admin context (right chat + user is admin)."""
+        """Check valid admin context (right chat + user is admin)."""  # noqa: DOC201
         if not self.is_admin(user_id):
             return False
         # If admin_group_id is set, only that group works
@@ -63,6 +65,8 @@ class Config:
                 register_button_text=sys_msg_data["register_button_text"],
                 question_intro=sys_msg_data["question_intro"],
                 skip_question_button_text=sys_msg_data["skip_question_button_text"],
+                unknown_message=sys_msg_data["unknown_message"],
+                start_command_description=sys_msg_data["start_command_description"],
             ),
             default_event_messages=DefaultEventMessages(
                 registration_success=event_msg_data["registration_success"],

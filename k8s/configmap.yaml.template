@@ -17,6 +17,8 @@ data:
     register_button_text = "Register"
     question_intro = "Before we register you, a quick question:"
     skip_question_button_text = "Skip"
+    unknown_message = "Use /start to see current events and register."
+    start_command_description = "Register for events"
 
     [default_event_messages]
     registration_success = "You're registered for {event_title}! We'll send you reminders before the event."

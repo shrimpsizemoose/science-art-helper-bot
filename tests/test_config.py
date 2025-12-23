@@ -44,6 +44,8 @@ event_not_available = "Closed"
 register_button_text = "Register"
 question_intro = "Quick question:"
 skip_question_button_text = "Skip"
+unknown_message = "Use /start to register."
+start_command_description = "Register"
 
 [default_event_messages]
 registration_success = "Done"

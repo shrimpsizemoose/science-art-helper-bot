@@ -45,12 +45,12 @@ class RegistrationStates(StatesGroup):
 
 
 def is_valid_event_code(code: str) -> bool:
-    """Check if code is valid for Telegram deep links (a-z, 0-9, _)."""
+    """Check if code is valid for Telegram deep links (a-z, 0-9, _)."""  # noqa: DOC201
     return bool(re.match(r"^[a-z0-9_]+$", code)) and len(code) <= 64
 
 
 def suggest_event_code(title: str) -> str:
-    """Generate a suggested event code from title (ASCII only)."""
+    """Generate a suggested event code from title (ASCII only)."""  # noqa: DOC201
     code = title.lower().strip()
     code = re.sub(r"[^a-z0-9\s-]", "", code)
     code = re.sub(r"[-\s]+", "_", code)
@@ -58,7 +58,8 @@ def suggest_event_code(title: str) -> str:
     if not code:
         # Fallback for non-ASCII titles
         import hashlib
-        code = hashlib.md5(title.encode()).hexdigest()[:12]
+
+        code = hashlib.md5(title.encode()).hexdigest()[:12]  # noqa: S324
     return code[:50]
 
 
@@ -962,3 +963,12 @@ async def cmd_export(message: Message, config: Config) -> None:
         output.getvalue().encode("utf-8"), filename=f"{event.code}_registrations.csv"
     )
     await message.answer_document(file, caption=f"📋 Registrations for {event.title}")
+
+
+# --- Fallback Handler ---
+
+
+@router.message()
+async def handle_unknown_message(message: Message, config: Config) -> None:
+    """Handle any unrecognized message."""
+    await message.answer(config.system_messages.unknown_message)

@@ -6,6 +6,7 @@ from pathlib import Path
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import BotCommand
 from dotenv import load_dotenv
 
 from src.config import Config
@@ -43,6 +44,15 @@ async def main() -> None:
     logger.info("Starting bot...")
     bot_info = await bot.get_me()
     logger.info(f"Bot: @{bot_info.username}")
+
+    await bot.set_my_commands(
+        [
+            BotCommand(
+                command="start",
+                description=config.system_messages.start_command_description,
+            ),
+        ]
+    )
 
     await dp.start_polling(bot)
 
