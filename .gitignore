@@ -12,4 +12,4 @@ __pycache__/
 *.db
 
 # uv
-uv.lock
+# uv.lock is committed for reproducible builds
