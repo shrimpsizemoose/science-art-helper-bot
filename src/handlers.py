@@ -75,12 +75,12 @@ def get_event_message(event: Event, key: str, config: Config) -> str:
 @router.message(CommandStart(deep_link=True))
 async def cmd_start_with_code(
     message: Message, command: CommandObject, config: Config, state: FSMContext
-):
+) -> None:
     """Handle /start with event code (deep link registration)."""
     event_code = command.args
     event = (
-        Event.select().where(Event.code == event_code, Event.is_active == True).first()
-    )  # noqa: E712
+        Event.select().where(Event.code == event_code, Event.is_active == True).first()  # noqa: E712
+    )
 
     if not event:
         await message.answer(config.system_messages.event_not_available)
@@ -117,16 +117,39 @@ async def cmd_start_with_code(
                     [InlineKeyboardButton(text=opt, callback_data=f"answer:{opt}")]
                     for opt in options
                 ]
+                + [
+                    [
+                        InlineKeyboardButton(
+                            text=config.system_messages.skip_question_button_text,
+                            callback_data="answer_skip",
+                        )
+                    ]
+                ]
             )
             await message.answer(
-                f"📋 *{event.title}*\n\n{event.custom_question}",
+                f"📋 *{event.title}*\n\n"
+                f"{config.system_messages.question_intro}\n\n"
+                f"{event.custom_question}",
                 reply_markup=keyboard,
                 parse_mode="Markdown",
             )
         else:
             await state.set_state(RegistrationStates.answer)
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=config.system_messages.skip_question_button_text,
+                            callback_data="answer_skip",
+                        )
+                    ]
+                ]
+            )
             await message.answer(
-                f"📋 *{event.title}*\n\n{event.custom_question}\n\n_(напишите ответ или /skip)_",
+                f"📋 *{event.title}*\n\n"
+                f"{config.system_messages.question_intro}\n\n"
+                f"{event.custom_question}",
+                reply_markup=keyboard,
                 parse_mode="Markdown",
             )
         return
@@ -148,13 +171,41 @@ async def cmd_start(message: Message, config: Config) -> None:
         await message.answer(config.system_messages.no_active_event)
         return
 
-    # Show event info
+    user = get_or_create_user(message.from_user)
+
+    # Check if already registered
+    existing = (
+        Registration.select()
+        .where(
+            Registration.user == user,
+            Registration.event == event,
+            Registration.cancelled == False,  # noqa: E712
+        )
+        .first()
+    )
+
+    if existing:
+        msg = get_event_message(event, "already_registered", config)
+        await message.answer(
+            msg.format(event_title=event.title, user_name=user.display_name)
+        )
+        return
+
+    # Show event info with register button
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=config.system_messages.register_button_text,
+                    callback_data=f"register:{event.id}",
+                )
+            ]
+        ]
+    )
     await message.answer(
-        f"📋 *{event.title}*\n\n"
-        f"{event.description}\n\n"
-        f"📅 {event.datetime_text}\n\n"
-        f"Use the registration link to sign up!",
+        f"📋 *{event.title}*\n\n{event.description}\n\n📅 {event.datetime_text}",
         parse_mode="Markdown",
+        reply_markup=keyboard,
     )
 
 
@@ -199,6 +250,26 @@ async def handle_text_answer(
     )
 
 
+@router.callback_query(F.data == "answer_skip")
+async def handle_skip_answer(
+    callback: CallbackQuery, config: Config, state: FSMContext
+) -> None:
+    """Handle skip button click for custom question."""
+    data = await state.get_data()
+
+    event = Event.get_by_id(data["event_id"])
+    user = User.get_by_id(data["user_id"])
+
+    Registration.create(user=user, event=event, answer=None)
+    await state.clear()
+
+    msg = get_event_message(event, "registration_success", config)
+    await callback.message.edit_text(
+        f"✅ {msg.format(event_title=event.title, user_name=user.display_name)}"
+    )
+    await callback.answer()
+
+
 @router.callback_query(F.data.startswith("cancel:"))
 async def handle_cancel_registration(callback: CallbackQuery, config: Config) -> None:
     """Handle cancel button click from broadcast message."""
@@ -231,6 +302,97 @@ async def handle_cancel_registration(callback: CallbackQuery, config: Config) ->
     msg = get_event_message(event, "cancel_confirmation", config)
     await callback.message.edit_text(
         msg.format(event_title=event.title, user_name=user.display_name)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("register:"))
+async def handle_register_button(
+    callback: CallbackQuery, config: Config, state: FSMContext
+) -> None:
+    """Handle register button click from /start message."""
+    event_id = int(callback.data.split(":")[1])
+
+    event = Event.get_or_none(Event.id == event_id, Event.is_active == True)  # noqa: E712
+    if not event:
+        await callback.answer(config.system_messages.event_not_available)
+        return
+
+    user = get_or_create_user(callback.from_user)
+
+    # Check if already registered
+    existing = (
+        Registration.select()
+        .where(
+            Registration.user == user,
+            Registration.event == event,
+            Registration.cancelled == False,  # noqa: E712
+        )
+        .first()
+    )
+
+    if existing:
+        msg = get_event_message(event, "already_registered", config)
+        await callback.answer(
+            msg.format(event_title=event.title, user_name=user.display_name),
+            show_alert=True,
+        )
+        return
+
+    # If event has custom question, ask it
+    if event.custom_question:
+        await state.update_data(event_id=event.id, user_id=user.id)
+
+        if event.question_type == "options":
+            options = event.get_options_list()
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(text=opt, callback_data=f"answer:{opt}")]
+                    for opt in options
+                ]
+                + [
+                    [
+                        InlineKeyboardButton(
+                            text=config.system_messages.skip_question_button_text,
+                            callback_data="answer_skip",
+                        )
+                    ]
+                ]
+            )
+            await callback.message.edit_text(
+                f"📋 *{event.title}*\n\n"
+                f"{config.system_messages.question_intro}\n\n"
+                f"{event.custom_question}",
+                reply_markup=keyboard,
+                parse_mode="Markdown",
+            )
+        else:
+            await state.set_state(RegistrationStates.answer)
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=config.system_messages.skip_question_button_text,
+                            callback_data="answer_skip",
+                        )
+                    ]
+                ]
+            )
+            await callback.message.edit_text(
+                f"📋 *{event.title}*\n\n"
+                f"{config.system_messages.question_intro}\n\n"
+                f"{event.custom_question}",
+                reply_markup=keyboard,
+                parse_mode="Markdown",
+            )
+        await callback.answer()
+        return
+
+    # No custom question - register directly
+    Registration.create(user=user, event=event)
+    msg = get_event_message(event, "registration_success", config)
+    await callback.message.edit_text(
+        f"✅ {msg.format(event_title=event.title, user_name=user.display_name)}"
     )
     await callback.answer()
 

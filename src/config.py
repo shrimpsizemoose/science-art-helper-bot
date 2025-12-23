@@ -7,6 +7,9 @@ from pathlib import Path
 class SystemMessages:
     no_active_event: str
     event_not_available: str
+    register_button_text: str
+    question_intro: str
+    skip_question_button_text: str
 
 
 @dataclass
@@ -55,6 +58,9 @@ class Config:
             system_messages=SystemMessages(
                 no_active_event=sys_msg_data["no_active_event"],
                 event_not_available=sys_msg_data["event_not_available"],
+                register_button_text=sys_msg_data.get("register_button_text", "Register"),
+                question_intro=sys_msg_data.get("question_intro", "Before we register you, a quick question:"),
+                skip_question_button_text=sys_msg_data.get("skip_question_button_text", "Skip"),
             ),
             default_event_messages=DefaultEventMessages(
                 registration_success=event_msg_data["registration_success"],

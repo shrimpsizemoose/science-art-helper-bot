@@ -15,6 +15,15 @@ no_active_event = "No current events at the moment. Subscribe to our channel for
 # Shown when registration is cancelled (event ended/archived)
 event_not_available = "This event is no longer accepting registrations."
 
+# Register button text shown when user opens bot without deep link
+register_button_text = "Register"
+
+# Intro text shown before custom question
+question_intro = "Before we register you, a quick question:"
+
+# Button to skip answering the custom question
+skip_question_button_text = "Skip"
+
 [default_event_messages]
 # Shown after successful registration. Supports {event_title}, {user_name}
 registration_success = "You're registered for {event_title}! We'll send you reminders before the event."
