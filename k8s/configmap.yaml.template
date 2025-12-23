@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: workshop-bot-config
+  namespace: matvey-gang
+data:
+  config.toml: |
+    # Workshop Signup Bot Configuration
+
+    [bot]
+    admin_ids = [YOUR_TELEGRAM_ID]
+    # admin_group_id = -1001234567890
+
+    [system_messages]
+    no_active_event = "No current events at the moment. Subscribe to our channel for updates!"
+    event_not_available = "This event is no longer accepting registrations."
+
+    [default_event_messages]
+    registration_success = "You're registered for {event_title}! We'll send you reminders before the event."
+    already_registered = "You're already registered for {event_title}!"
+    cancel_button_text = "I can't make it"
+    cancel_confirmation = "No problem, thanks for letting us know! You've been unregistered from {event_title}."
