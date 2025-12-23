@@ -41,10 +41,15 @@ admin_ids = [123456789]
 [system_messages]
 no_active_event = "No events"
 event_not_available = "Closed"
+register_button_text = "Register"
+question_intro = "Quick question:"
+skip_question_button_text = "Skip"
 
 [default_event_messages]
 registration_success = "Done"
 already_registered = "Already"
+confirm_button_text = "Coming!"
+confirm_confirmation = "See you!"
 cancel_button_text = "Cancel"
 cancel_confirmation = "Cancelled"
 """

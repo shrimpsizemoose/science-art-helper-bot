@@ -50,13 +50,13 @@ class Config:
         with path.open("rb") as f:
             data = tomllib.load(f)
 
-        bot_data = data.get("bot", {})
-        sys_msg_data = data.get("system_messages", {})
-        event_msg_data = data.get("default_event_messages", {})
+        bot_data = data["bot"]
+        sys_msg_data = data["system_messages"]
+        event_msg_data = data["default_event_messages"]
 
         return cls(
-            admin_ids=bot_data.get("admin_ids", []),
-            admin_group_id=bot_data.get("admin_group_id"),
+            admin_ids=bot_data["admin_ids"],
+            admin_group_id=bot_data.get("admin_group_id"),  # Optional
             system_messages=SystemMessages(
                 no_active_event=sys_msg_data["no_active_event"],
                 event_not_available=sys_msg_data["event_not_available"],

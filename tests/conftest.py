@@ -28,10 +28,15 @@ admin_group_id = -1001234567890
 [system_messages]
 no_active_event = "No events right now"
 event_not_available = "Event closed"
+register_button_text = "Register"
+question_intro = "Quick question:"
+skip_question_button_text = "Skip"
 
 [default_event_messages]
 registration_success = "Registered for {event_title}!"
 already_registered = "Already in {event_title}"
+confirm_button_text = "I'll be there!"
+confirm_confirmation = "See you at {event_title}!"
 cancel_button_text = "Cancel"
 cancel_confirmation = "Cancelled from {event_title}"
 """
