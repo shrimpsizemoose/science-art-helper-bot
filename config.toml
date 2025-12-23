@@ -31,6 +31,12 @@ registration_success = "You're registered for {event_title}! We'll send you remi
 # Shown when user is already registered
 already_registered = "You're already registered for {event_title}!"
 
+# Button text for confirming attendance (in broadcast messages)
+confirm_button_text = "I'll be there!"
+
+# Shown after user confirms attendance
+confirm_confirmation = "Great, see you at {event_title}! 🎉"
+
 # Button text for cancelling registration
 cancel_button_text = "I can't make it"
 

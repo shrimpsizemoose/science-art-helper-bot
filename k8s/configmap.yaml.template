@@ -21,5 +21,7 @@ data:
     [default_event_messages]
     registration_success = "You're registered for {event_title}! We'll send you reminders before the event."
     already_registered = "You're already registered for {event_title}!"
+    confirm_button_text = "I'll be there!"
+    confirm_confirmation = "Great, see you at {event_title}! 🎉"
     cancel_button_text = "I can't make it"
     cancel_confirmation = "No problem, thanks for letting us know! You've been unregistered from {event_title}."

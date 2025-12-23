@@ -67,6 +67,8 @@ class Event(BaseModel):
     msg_cancel_confirmation = TextField(null=True)
 
     is_active = BooleanField(default=True)
+    confirmation_sent = BooleanField(default=False)
+    confirmation_sent_at = DateTimeField(null=True)
     created_at = DateTimeField(default=utcnow)
     archived_at = DateTimeField(null=True)
 
@@ -87,6 +89,8 @@ class Registration(BaseModel):
     event = ForeignKeyField(Event, backref="registrations")
     answer = TextField(null=True)  # Answer to custom question
     registered_at = DateTimeField(default=utcnow)
+    confirmed = BooleanField(default=False)
+    confirmed_at = DateTimeField(null=True)
     cancelled = BooleanField(default=False)
     cancelled_at = DateTimeField(null=True)
 

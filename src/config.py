@@ -16,6 +16,8 @@ class SystemMessages:
 class DefaultEventMessages:
     registration_success: str
     already_registered: str
+    confirm_button_text: str
+    confirm_confirmation: str
     cancel_button_text: str
     cancel_confirmation: str
 
@@ -58,13 +60,15 @@ class Config:
             system_messages=SystemMessages(
                 no_active_event=sys_msg_data["no_active_event"],
                 event_not_available=sys_msg_data["event_not_available"],
-                register_button_text=sys_msg_data.get("register_button_text", "Register"),
-                question_intro=sys_msg_data.get("question_intro", "Before we register you, a quick question:"),
-                skip_question_button_text=sys_msg_data.get("skip_question_button_text", "Skip"),
+                register_button_text=sys_msg_data["register_button_text"],
+                question_intro=sys_msg_data["question_intro"],
+                skip_question_button_text=sys_msg_data["skip_question_button_text"],
             ),
             default_event_messages=DefaultEventMessages(
                 registration_success=event_msg_data["registration_success"],
                 already_registered=event_msg_data["already_registered"],
+                confirm_button_text=event_msg_data["confirm_button_text"],
+                confirm_confirmation=event_msg_data["confirm_confirmation"],
                 cancel_button_text=event_msg_data["cancel_button_text"],
                 cancel_confirmation=event_msg_data["cancel_confirmation"],
             ),

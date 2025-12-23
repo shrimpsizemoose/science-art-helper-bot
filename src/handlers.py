@@ -50,7 +50,7 @@ def slugify(text: str) -> str:
     return text[:50]
 
 
-def get_or_create_user(tg_user) -> User:
+def get_or_create_user(tg_user) -> User:  # noqa: ANN001
     user, _ = User.get_or_create(
         telegram_id=tg_user.id,
         defaults={
@@ -270,6 +270,46 @@ async def handle_skip_answer(
     await callback.answer()
 
 
+@router.callback_query(F.data.startswith("confirm:"))
+async def handle_confirm_attendance(callback: CallbackQuery, config: Config) -> None:
+    """Handle confirm button click from broadcast message."""
+    event_id = int(callback.data.split(":")[1])
+
+    event = Event.get_or_none(Event.id == event_id)
+    if not event:
+        await callback.answer("Event not found")
+        return
+
+    user = User.get_or_none(User.telegram_id == callback.from_user.id)
+    if not user:
+        await callback.answer("User not found")
+        return
+
+    registration = Registration.get_or_none(
+        Registration.user == user,
+        Registration.event == event,
+        Registration.cancelled == False,  # noqa: E712
+    )
+
+    if not registration:
+        await callback.answer("Registration not found")
+        return
+
+    if registration.confirmed:
+        await callback.answer("Already confirmed!")
+        return
+
+    registration.confirmed = True
+    registration.confirmed_at = utcnow()
+    registration.save()
+
+    msg = get_event_message(event, "confirm_confirmation", config)
+    await callback.message.edit_text(
+        msg.format(event_title=event.title, user_name=user.display_name)
+    )
+    await callback.answer()
+
+
 @router.callback_query(F.data.startswith("cancel:"))
 async def handle_cancel_registration(callback: CallbackQuery, config: Config) -> None:
     """Handle cancel button click from broadcast message."""
@@ -400,10 +440,10 @@ async def handle_register_button(
 # --- Admin Handlers ---
 
 
-def admin_check(config: Config):
-    """Create filter for admin commands."""
+def admin_check(config: Config):  # noqa: ANN201
+    """Create filter for admin commands."""  # noqa: DOC201
 
-    async def check(message: Message) -> bool:
+    async def check(message: Message) -> bool:  # noqa: RUF029
         return config.is_admin_context(message.chat.id, message.from_user.id)
 
     return check
@@ -655,21 +695,52 @@ async def process_broadcast_message(
     if not config.is_admin_context(message.chat.id, message.from_user.id):
         return
 
+    data = await state.get_data()
+    event = Event.get_by_id(data["event_id"])
+
     await state.update_data(broadcast_text=message.text)
     await state.set_state(BroadcastStates.confirm)
 
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
+    buttons = []
+    if event.confirmation_sent:
+        # Confirmation already sent - only offer plain send
+        buttons.append(
             [
-                InlineKeyboardButton(text="✅ Send", callback_data="broadcast:send"),
                 InlineKeyboardButton(
-                    text="❌ Cancel", callback_data="broadcast:cancel"
+                    text="📤 Send", callback_data="broadcast:send:no_buttons"
                 ),
             ]
+        )
+        prompt = "_Confirmation buttons were already sent for this event._"
+    else:
+        # Offer both options
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="✅ Include participation confirmation buttons",
+                    callback_data="broadcast:send:buttons",
+                ),
+            ]
+        )
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="📤 Send without buttons",
+                    callback_data="broadcast:send:no_buttons",
+                ),
+            ]
+        )
+        prompt = "_Include participation confirmation buttons?_"
+
+    buttons.append(
+        [
+            InlineKeyboardButton(text="❌ Cancel", callback_data="broadcast:cancel"),
         ]
     )
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     await message.answer(
-        f"📢 *Preview:*\n\n{message.text}\n\n_Confirm broadcast?_",
+        f"📢 *Preview:*\n\n{message.text}\n\n{prompt}",
         reply_markup=keyboard,
         parse_mode="Markdown",
     )
@@ -683,11 +754,13 @@ async def cancel_broadcast(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
 
 
-@router.callback_query(F.data == "broadcast:send")
+@router.callback_query(F.data.startswith("broadcast:send:"))
 async def send_broadcast(
     callback: CallbackQuery, config: Config, state: FSMContext, bot: Bot
 ) -> None:
     """Send broadcast to all registrants."""
+    include_buttons = callback.data == "broadcast:send:buttons"
+
     data = await state.get_data()
     event = Event.get_by_id(data["event_id"])
     broadcast_text = data["broadcast_text"]
@@ -698,16 +771,26 @@ async def send_broadcast(
         Registration.cancelled == False,  # noqa: E712
     )
 
-    cancel_btn_text = get_event_message(event, "cancel_button_text", config)
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=cancel_btn_text, callback_data=f"cancel:{event.id}"
-                )
+    keyboard = None
+    if include_buttons:
+        confirm_btn_text = get_event_message(event, "confirm_button_text", config)
+        cancel_btn_text = get_event_message(event, "cancel_button_text", config)
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=confirm_btn_text, callback_data=f"confirm:{event.id}"
+                    ),
+                    InlineKeyboardButton(
+                        text=cancel_btn_text, callback_data=f"cancel:{event.id}"
+                    ),
+                ]
             ]
-        ]
-    )
+        )
+        # Mark that confirmation was sent for this event
+        event.confirmation_sent = True
+        event.confirmation_sent_at = utcnow()
+        event.save()
 
     sent = 0
     failed = 0
@@ -750,13 +833,22 @@ async def cmd_stats(message: Message, config: Config) -> None:
         )
         .count()
     )
+    confirmed = (
+        Registration.select()
+        .where(
+            Registration.event == event,
+            Registration.cancelled == False,  # noqa: E712
+            Registration.confirmed == True,  # noqa: E712
+        )
+        .count()
+    )
     cancelled = total - active
 
     text = (
         f"📊 *Stats: {event.title}*\n\n"
-        f"✅ Active: {active}\n"
-        f"❌ Cancelled: {cancelled}\n"
-        f"📋 Total: {total}"
+        f"🎉 Confirmed: {confirmed}\n"
+        f"📋 Registered: {active}\n"
+        f"❌ Cancelled: {cancelled}"
     )
 
     # If there's a custom question with options, show answer breakdown
