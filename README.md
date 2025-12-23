@@ -34,6 +34,18 @@ uv run python -m src.main
 | `DATABASE_URL` | `sqlite:///bot.db` или `postgresql://user:pass@host:5432/db` |
 | `CONFIG_PATH` | Путь к config.toml |
 
+### PostgreSQL (для прода)
+
+```sql
+-- Подключиться к postgres и создать юзера/базу
+CREATE USER workshop_bot WITH PASSWORD 'your_secure_password';
+CREATE DATABASE workshop_bot OWNER workshop_bot;
+```
+
+Тогда `DATABASE_URL=postgresql://workshop_bot:your_secure_password@host:5432/workshop_bot`
+
+Таблицы создадутся автоматически при первом запуске бота.
+
 ### Настройки (config.toml)
 
 ```toml
