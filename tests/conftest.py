@@ -28,6 +28,8 @@ admin_group_id = -1001234567890
 [system_messages]
 no_active_event = "No events right now"
 event_not_available = "Event closed"
+event_already_ended = "This event has already ended."
+event_ended_notification = "{event_title} has concluded."
 register_button_text = "Register"
 question_intro = "Quick question:"
 skip_question_button_text = "Skip"

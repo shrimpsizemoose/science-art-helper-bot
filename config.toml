@@ -15,6 +15,12 @@ no_active_event = "No current events at the moment. Subscribe to our channel for
 # Shown when registration is cancelled (event ended/archived)
 event_not_available = "This event is no longer accepting registrations."
 
+# Shown when user tries to confirm/cancel after event has ended
+event_already_ended = "This event has already ended."
+
+# Notification sent to participants when event ends (supports {event_title})
+event_ended_notification = "{event_title} has concluded. Thank you for being part of it!"
+
 # Register button text shown when user opens bot without deep link
 register_button_text = "Register"
 

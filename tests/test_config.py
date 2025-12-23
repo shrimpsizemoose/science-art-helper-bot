@@ -41,6 +41,8 @@ admin_ids = [123456789]
 [system_messages]
 no_active_event = "No events"
 event_not_available = "Closed"
+event_already_ended = "Event ended"
+event_ended_notification = "Event concluded"
 register_button_text = "Register"
 question_intro = "Quick question:"
 skip_question_button_text = "Skip"

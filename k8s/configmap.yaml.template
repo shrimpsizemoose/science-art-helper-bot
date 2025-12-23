@@ -14,6 +14,8 @@ data:
     [system_messages]
     no_active_event = "No current events at the moment. Subscribe to our channel for updates!"
     event_not_available = "This event is no longer accepting registrations."
+    event_already_ended = "This event has already ended."
+    event_ended_notification = "{event_title} has concluded. Thank you for being part of it!"
     register_button_text = "Register"
     question_intro = "Before we register you, a quick question:"
     skip_question_button_text = "Skip"

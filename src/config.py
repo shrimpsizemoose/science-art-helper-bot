@@ -7,6 +7,8 @@ from pathlib import Path
 class SystemMessages:
     no_active_event: str
     event_not_available: str
+    event_already_ended: str
+    event_ended_notification: str
     register_button_text: str
     question_intro: str
     skip_question_button_text: str
@@ -62,6 +64,8 @@ class Config:
             system_messages=SystemMessages(
                 no_active_event=sys_msg_data["no_active_event"],
                 event_not_available=sys_msg_data["event_not_available"],
+                event_already_ended=sys_msg_data["event_already_ended"],
+                event_ended_notification=sys_msg_data["event_ended_notification"],
                 register_button_text=sys_msg_data["register_button_text"],
                 question_intro=sys_msg_data["question_intro"],
                 skip_question_button_text=sys_msg_data["skip_question_button_text"],

@@ -7,6 +7,7 @@ from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
+    BufferedInputFile,
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -80,6 +81,72 @@ def get_event_message(event: Event, key: str, config: Config) -> str:
     if event_msg:
         return event_msg
     return getattr(config.default_event_messages, key)
+
+
+def generate_event_csv(event: Event) -> io.StringIO:
+    """Generate CSV data for event registrations."""  # noqa: DOC201
+    registrations = (
+        Registration.select()
+        .where(
+            Registration.event == event,
+            Registration.cancelled == False,  # noqa: E712
+        )
+        .join(User)
+    )
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    headers = ["telegram_id", "username", "first_name", "last_name", "registered_at"]
+    if event.custom_question:
+        headers.append("answer")
+    writer.writerow(headers)
+
+    for reg in registrations:
+        row = [
+            reg.user.telegram_id,
+            reg.user.username or "",
+            reg.user.first_name or "",
+            reg.user.last_name or "",
+            reg.registered_at.isoformat(),
+        ]
+        if event.custom_question:
+            row.append(reg.answer or "")
+        writer.writerow(row)
+
+    output.seek(0)
+    return output
+
+
+def get_event_stats(event: Event) -> dict:
+    """Get registration statistics for an event."""  # noqa: DOC201
+    total = Registration.select().where(Registration.event == event).count()
+    active = (
+        Registration.select()
+        .where(
+            Registration.event == event,
+            Registration.cancelled == False,  # noqa: E712
+        )
+        .count()
+    )
+    confirmed = (
+        Registration.select()
+        .where(
+            Registration.event == event,
+            Registration.cancelled == False,  # noqa: E712
+            Registration.confirmed == True,  # noqa: E712
+        )
+        .count()
+    )
+    cancelled = total - active
+    pending = active - confirmed
+
+    return {
+        "registered": active,
+        "confirmed": confirmed,
+        "cancelled": cancelled,
+        "pending": pending,
+    }
 
 
 # --- User Handlers ---
@@ -255,6 +322,12 @@ async def handle_confirm_attendance(callback: CallbackQuery, config: Config) -> 
         await callback.answer("Event not found")
         return
 
+    if not event.is_active:
+        await callback.answer(
+            config.system_messages.event_already_ended, show_alert=True
+        )
+        return
+
     user = User.get_or_none(User.telegram_id == callback.from_user.id)
     if not user:
         await callback.answer("User not found")
@@ -293,6 +366,12 @@ async def handle_cancel_registration(callback: CallbackQuery, config: Config) ->
     event = Event.get_or_none(Event.id == event_id)
     if not event:
         await callback.answer("Event not found")
+        return
+
+    if not event.is_active:
+        await callback.answer(
+            config.system_messages.event_already_ended, show_alert=True
+        )
         return
 
     user = User.get_or_none(User.telegram_id == callback.from_user.id)
@@ -638,7 +717,7 @@ async def process_question_options(
 
 @router.message(Command("endevent"))
 async def cmd_endevent(message: Message, config: Config) -> None:
-    """Archive current active event."""
+    """Show confirmation dialog before archiving event."""
     if not config.is_admin_context(message.chat.id, message.from_user.id):
         return
 
@@ -647,23 +726,134 @@ async def cmd_endevent(message: Message, config: Config) -> None:
         await message.answer("No active event to end.")
         return
 
+    stats = get_event_stats(event)
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📤 Export CSV", callback_data=f"endevent:export:{event.id}"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="✅ End & notify",
+                    callback_data=f"endevent:end:{event.id}:notify",
+                ),
+                InlineKeyboardButton(
+                    text="🗑 End silently",
+                    callback_data=f"endevent:end:{event.id}:silent",
+                ),
+            ],
+            [
+                InlineKeyboardButton(text="❌ Cancel", callback_data="endevent:cancel"),
+            ],
+        ]
+    )
+
+    await message.answer(
+        f'📊 *End event "{event.title}"?*\n\n'
+        f"Registered: {stats['registered']}\n"
+        f"Confirmed: {stats['confirmed']}\n"
+        f"Cancelled: {stats['cancelled']}\n"
+        f"Pending: {stats['pending']}",
+        parse_mode="Markdown",
+        reply_markup=keyboard,
+    )
+
+
+@router.callback_query(F.data.startswith("endevent:export:"))
+async def handle_endevent_export(
+    callback: CallbackQuery, config: Config, bot: Bot
+) -> None:
+    """Export CSV before ending event."""
+    if not config.is_admin_context(callback.message.chat.id, callback.from_user.id):
+        return
+
+    event_id = int(callback.data.split(":")[2])
+    event = Event.get_or_none(Event.id == event_id, Event.is_active == True)  # noqa: E712
+    if not event:
+        await callback.answer("Event not found or already ended")
+        return
+
+    output = generate_event_csv(event)
+    file = BufferedInputFile(
+        output.getvalue().encode("utf-8"), filename=f"{event.code}_registrations.csv"
+    )
+    await bot.send_document(
+        callback.message.chat.id, file, caption=f"📋 Registrations for {event.title}"
+    )
+    await callback.answer("CSV exported!")
+
+
+@router.callback_query(F.data.startswith("endevent:end:"))
+async def handle_endevent_confirm(
+    callback: CallbackQuery, config: Config, bot: Bot
+) -> None:
+    """Archive event and optionally notify participants."""
+    if not config.is_admin_context(callback.message.chat.id, callback.from_user.id):
+        return
+
+    parts = callback.data.split(":")
+    event_id = int(parts[2])
+    notify = parts[3] == "notify"
+
+    event = Event.get_or_none(Event.id == event_id, Event.is_active == True)  # noqa: E712
+    if not event:
+        await callback.answer("Event not found or already ended")
+        return
+
+    # Archive the event
     event.is_active = False
     event.archived_at = utcnow()
     event.save()
 
-    reg_count = (
-        Registration.select()
-        .where(
+    stats = get_event_stats(event)
+
+    # Notify participants if requested
+    sent = 0
+    failed = 0
+    if notify:
+        registrations = Registration.select().where(
             Registration.event == event,
             Registration.cancelled == False,  # noqa: E712
         )
-        .count()
-    )
+        notification_msg = config.system_messages.event_ended_notification.format(
+            event_title=event.title
+        )
+        for reg in registrations:
+            try:
+                await bot.send_message(reg.user.telegram_id, notification_msg)
+                sent += 1
+            except Exception:
+                failed += 1
 
-    await message.answer(
-        f"✅ Event *{event.title}* archived.\n📊 Total registrations: {reg_count}",
-        parse_mode="Markdown",
+    result_text = (
+        f'✅ *Event "{event.title}" archived.*\n\n'
+        f"📊 Final stats:\n"
+        f"Registered: {stats['registered']}\n"
+        f"Confirmed: {stats['confirmed']}\n"
+        f"Cancelled: {stats['cancelled']}"
     )
+    if notify:
+        result_text += f"\n\n📤 Notifications sent: {sent}"
+        if failed:
+            result_text += f" (failed: {failed})"
+
+    result_text += "\n\nUse /history to view past events."
+
+    await callback.message.edit_text(result_text, parse_mode="Markdown")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "endevent:cancel")
+async def handle_endevent_cancel(callback: CallbackQuery, config: Config) -> None:
+    """Cancel end event operation."""
+    if not config.is_admin_context(callback.message.chat.id, callback.from_user.id):
+        return
+
+    await callback.message.edit_text("❌ End event cancelled.")
+    await callback.answer()
 
 
 @router.message(Command("broadcast"))
@@ -927,42 +1117,78 @@ async def cmd_export(message: Message, config: Config) -> None:
         await message.answer("No active event.")
         return
 
-    registrations = (
-        Registration.select()
-        .where(
-            Registration.event == event,
-            Registration.cancelled == False,  # noqa: E712
-        )
-        .join(User)
-    )
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-
-    headers = ["telegram_id", "username", "first_name", "last_name", "registered_at"]
-    if event.custom_question:
-        headers.append("answer")
-    writer.writerow(headers)
-
-    for reg in registrations:
-        row = [
-            reg.user.telegram_id,
-            reg.user.username or "",
-            reg.user.first_name or "",
-            reg.user.last_name or "",
-            reg.registered_at.isoformat(),
-        ]
-        if event.custom_question:
-            row.append(reg.answer or "")
-        writer.writerow(row)
-
-    output.seek(0)
-    from aiogram.types import BufferedInputFile
-
+    output = generate_event_csv(event)
     file = BufferedInputFile(
         output.getvalue().encode("utf-8"), filename=f"{event.code}_registrations.csv"
     )
     await message.answer_document(file, caption=f"📋 Registrations for {event.title}")
+
+
+@router.message(Command("history"))
+async def cmd_history(message: Message, config: Config) -> None:
+    """Show archived events."""
+    if not config.is_admin_context(message.chat.id, message.from_user.id):
+        return
+
+    archived_events = (
+        Event.select()
+        .where(Event.is_active == False)  # noqa: E712
+        .order_by(Event.archived_at.desc())
+        .limit(10)
+    )
+
+    events_list = list(archived_events)
+    if not events_list:
+        await message.answer("No archived events yet.")
+        return
+
+    text = "📜 *Past Events:*\n"
+    buttons = []
+
+    for i, event in enumerate(events_list, 1):
+        stats = get_event_stats(event)
+        archived_date = (
+            event.archived_at.strftime("%b %d, %Y") if event.archived_at else "Unknown"
+        )
+        text += (
+            f"\n*{i}. {event.title}* ({archived_date})\n"
+            f"   Registered: {stats['registered']} | Confirmed: {stats['confirmed']}\n"
+        )
+        buttons.append(
+            InlineKeyboardButton(
+                text=f"📤 #{i}", callback_data=f"history:export:{event.id}"
+            )
+        )
+
+    # Arrange buttons in rows of 5
+    button_rows = [buttons[i : i + 5] for i in range(0, len(buttons), 5)]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=button_rows)
+
+    await message.answer(text, parse_mode="Markdown", reply_markup=keyboard)
+
+
+@router.callback_query(F.data.startswith("history:export:"))
+async def handle_history_export(
+    callback: CallbackQuery, config: Config, bot: Bot
+) -> None:
+    """Export CSV for archived event."""
+    if not config.is_admin_context(callback.message.chat.id, callback.from_user.id):
+        return
+
+    event_id = int(callback.data.split(":")[2])
+    event = Event.get_or_none(Event.id == event_id)
+    if not event:
+        await callback.answer("Event not found")
+        return
+
+    output = generate_event_csv(event)
+    file = BufferedInputFile(
+        output.getvalue().encode("utf-8"), filename=f"{event.code}_registrations.csv"
+    )
+    await bot.send_document(
+        callback.message.chat.id, file, caption=f"📋 Registrations for {event.title}"
+    )
+    await callback.answer("CSV exported!")
 
 
 # --- Fallback Handler ---
