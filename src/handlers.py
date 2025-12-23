@@ -26,6 +26,7 @@ class NewEventStates(StatesGroup):
     title = State()
     description = State()
     datetime_text = State()
+    event_code = State()
     custom_question = State()
     question_type = State()
     question_options = State()
@@ -43,11 +44,22 @@ class RegistrationStates(StatesGroup):
 # --- Helpers ---
 
 
-def slugify(text: str) -> str:
-    text = text.lower().strip()
-    text = re.sub(r"[^\w\s-]", "", text)
-    text = re.sub(r"[-\s]+", "_", text)
-    return text[:50]
+def is_valid_event_code(code: str) -> bool:
+    """Check if code is valid for Telegram deep links (a-z, 0-9, _)."""
+    return bool(re.match(r"^[a-z0-9_]+$", code)) and len(code) <= 64
+
+
+def suggest_event_code(title: str) -> str:
+    """Generate a suggested event code from title (ASCII only)."""
+    code = title.lower().strip()
+    code = re.sub(r"[^a-z0-9\s-]", "", code)
+    code = re.sub(r"[-\s]+", "_", code)
+    code = code.strip("_")
+    if not code:
+        # Fallback for non-ASCII titles
+        import hashlib
+        code = hashlib.md5(title.encode()).hexdigest()[:12]
+    return code[:50]
 
 
 def get_or_create_user(tg_user) -> User:  # noqa: ANN001
@@ -501,6 +513,43 @@ async def process_event_datetime(
         return
 
     await state.update_data(datetime_text=message.text)
+    data = await state.get_data()
+    suggested = suggest_event_code(data["title"])
+
+    await state.set_state(NewEventStates.event_code)
+    await message.answer(
+        f"🔗 Event code for the registration link?\n\n"
+        f"Only a-z, 0-9, _ allowed. Example: {suggested}",
+    )
+
+
+@router.message(NewEventStates.event_code)
+async def process_event_code(
+    message: Message, config: Config, state: FSMContext
+) -> None:
+    """Process event code."""
+    if not config.is_admin_context(message.chat.id, message.from_user.id):
+        return
+
+    code = message.text.lower().strip()
+
+    if not is_valid_event_code(code):
+        await message.answer(
+            "❌ Invalid code. Only lowercase letters, numbers, and underscores allowed.\n"
+            "Try again:"
+        )
+        return
+
+    # Check if code already exists
+    existing = Event.get_or_none(Event.code == code)
+    if existing:
+        await message.answer(
+            f"❌ Code `{code}` is already used. Try a different one:",
+            parse_mode="Markdown",
+        )
+        return
+
+    await state.update_data(event_code=code)
     await state.set_state(NewEventStates.custom_question)
     await message.answer(
         "❓ Custom question for registrants?\n\n_(Type question or /skip)_",
@@ -519,17 +568,16 @@ async def process_custom_question(
     if message.text == "/skip":
         # No custom question - create event
         data = await state.get_data()
-        code = slugify(data["title"])
         event = Event.create(
             title=data["title"],
             description=data["description"],
             datetime_text=data["datetime_text"],
-            code=code,
+            code=data["event_code"],
         )
         await state.clear()
 
         bot_info = await bot.get_me()
-        link = f"https://t.me/{bot_info.username}?start={code}"
+        link = f"https://t.me/{bot_info.username}?start={data['event_code']}"
         await message.answer(
             f"✅ *Event created!*\n\n📋 {event.title}\n🔗 Registration link:\n`{link}`",
             parse_mode="Markdown",
@@ -564,19 +612,18 @@ async def process_question_type(
     if qtype == "text":
         # Create event with text question
         data = await state.get_data()
-        code = slugify(data["title"])
         event = Event.create(
             title=data["title"],
             description=data["description"],
             datetime_text=data["datetime_text"],
-            code=code,
+            code=data["event_code"],
             custom_question=data["custom_question"],
             question_type="text",
         )
         await state.clear()
 
         bot_info = await bot.get_me()
-        link = f"https://t.me/{bot_info.username}?start={code}"
+        link = f"https://t.me/{bot_info.username}?start={data['event_code']}"
         await callback.message.edit_text(
             f"✅ *Event created!*\n\n"
             f"📋 {event.title}\n"
@@ -602,12 +649,11 @@ async def process_question_options(
         return
 
     data = await state.get_data()
-    code = slugify(data["title"])
     event = Event.create(
         title=data["title"],
         description=data["description"],
         datetime_text=data["datetime_text"],
-        code=code,
+        code=data["event_code"],
         custom_question=data["custom_question"],
         question_type="options",
         question_options=message.text,
@@ -615,7 +661,7 @@ async def process_question_options(
     await state.clear()
 
     bot_info = await bot.get_me()
-    link = f"https://t.me/{bot_info.username}?start={code}"
+    link = f"https://t.me/{bot_info.username}?start={data['event_code']}"
     options = event.get_options_list()
     await message.answer(
         f"✅ *Event created!*\n\n"
@@ -701,24 +747,53 @@ async def process_broadcast_message(
     await state.update_data(broadcast_text=message.text)
     await state.set_state(BroadcastStates.confirm)
 
+    # Count recipients
+    all_count = (
+        Registration.select()
+        .where(
+            Registration.event == event,
+            Registration.cancelled == False,  # noqa: E712
+        )
+        .count()
+    )
+    non_responders_count = (
+        Registration.select()
+        .where(
+            Registration.event == event,
+            Registration.cancelled == False,  # noqa: E712
+            Registration.confirmed == False,  # noqa: E712
+        )
+        .count()
+    )
+
     buttons = []
     if event.confirmation_sent:
-        # Confirmation already sent - only offer plain send
+        # Confirmation already sent - offer smart targeting
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text="📤 Send", callback_data="broadcast:send:no_buttons"
+                    text=f"📤 Send to all ({all_count})",
+                    callback_data="broadcast:send:no_buttons:all",
                 ),
             ]
         )
-        prompt = "_Confirmation buttons were already sent for this event._"
+        if non_responders_count > 0 and non_responders_count < all_count:
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"🎯 Send to non-responders ({non_responders_count}) + buttons",
+                        callback_data="broadcast:send:buttons:non_responders",
+                    ),
+                ]
+            )
+        prompt = "_Confirmation was already sent. Choose recipients:_"
     else:
-        # Offer both options
+        # First broadcast - offer button options
         buttons.append(
             [
                 InlineKeyboardButton(
                     text="✅ Include participation confirmation buttons",
-                    callback_data="broadcast:send:buttons",
+                    callback_data="broadcast:send:buttons:all",
                 ),
             ]
         )
@@ -726,7 +801,7 @@ async def process_broadcast_message(
             [
                 InlineKeyboardButton(
                     text="📤 Send without buttons",
-                    callback_data="broadcast:send:no_buttons",
+                    callback_data="broadcast:send:no_buttons:all",
                 ),
             ]
         )
@@ -758,18 +833,26 @@ async def cancel_broadcast(callback: CallbackQuery, state: FSMContext) -> None:
 async def send_broadcast(
     callback: CallbackQuery, config: Config, state: FSMContext, bot: Bot
 ) -> None:
-    """Send broadcast to all registrants."""
-    include_buttons = callback.data == "broadcast:send:buttons"
+    """Send broadcast to registrants."""
+    # Parse callback: broadcast:send:{buttons|no_buttons}:{all|non_responders}
+    parts = callback.data.split(":")
+    include_buttons = parts[2] == "buttons"
+    target = parts[3] if len(parts) > 3 else "all"
 
     data = await state.get_data()
     event = Event.get_by_id(data["event_id"])
     broadcast_text = data["broadcast_text"]
     await state.clear()
 
-    registrations = Registration.select().where(
+    # Build query based on targeting
+    query = Registration.select().where(
         Registration.event == event,
         Registration.cancelled == False,  # noqa: E712
     )
+    if target == "non_responders":
+        query = query.where(Registration.confirmed == False)  # noqa: E712
+
+    registrations = query
 
     keyboard = None
     if include_buttons:
@@ -788,9 +871,10 @@ async def send_broadcast(
             ]
         )
         # Mark that confirmation was sent for this event
-        event.confirmation_sent = True
-        event.confirmation_sent_at = utcnow()
-        event.save()
+        if not event.confirmation_sent:
+            event.confirmation_sent = True
+            event.confirmation_sent_at = utcnow()
+            event.save()
 
     sent = 0
     failed = 0
