@@ -86,7 +86,7 @@ def get_event_message(event: Event, key: str, config: Config) -> str:
 
 @router.message(CommandStart(deep_link=True))
 async def cmd_start_with_code(
-    message: Message, command: CommandObject, config: Config, state: FSMContext
+    message: Message, command: CommandObject, config: Config
 ) -> None:
     """Handle /start with event code (deep link registration)."""
     event_code = command.args
@@ -118,59 +118,21 @@ async def cmd_start_with_code(
         )
         return
 
-    # If event has custom question, ask it
-    if event.custom_question:
-        await state.update_data(event_id=event.id, user_id=user.id)
-
-        if event.question_type == "options":
-            options = event.get_options_list()
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text=opt, callback_data=f"answer:{opt}")]
-                    for opt in options
-                ]
-                + [
-                    [
-                        InlineKeyboardButton(
-                            text=config.system_messages.skip_question_button_text,
-                            callback_data="answer_skip",
-                        )
-                    ]
-                ]
-            )
-            await message.answer(
-                f"📋 *{event.title}*\n\n"
-                f"{config.system_messages.question_intro}\n\n"
-                f"{event.custom_question}",
-                reply_markup=keyboard,
-                parse_mode="Markdown",
-            )
-        else:
-            await state.set_state(RegistrationStates.answer)
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=config.system_messages.skip_question_button_text,
-                            callback_data="answer_skip",
-                        )
-                    ]
-                ]
-            )
-            await message.answer(
-                f"📋 *{event.title}*\n\n"
-                f"{config.system_messages.question_intro}\n\n"
-                f"{event.custom_question}",
-                reply_markup=keyboard,
-                parse_mode="Markdown",
-            )
-        return
-
-    # No custom question - register directly
-    Registration.create(user=user, event=event)
-    msg = get_event_message(event, "registration_success", config)
+    # Show event info with register button (same as plain /start)
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=config.system_messages.register_button_text,
+                    callback_data=f"register:{event.id}",
+                )
+            ]
+        ]
+    )
     await message.answer(
-        msg.format(event_title=event.title, user_name=user.display_name)
+        f"📋 *{event.title}*\n\n{event.description}\n\n📅 {event.datetime_text}",
+        parse_mode="Markdown",
+        reply_markup=keyboard,
     )
 
 
