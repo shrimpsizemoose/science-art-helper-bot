@@ -103,12 +103,16 @@ def generate_event_csv(event: Event) -> io.StringIO:
     writer.writerow(headers)
 
     for reg in registrations:
+        # Handle both datetime objects and strings (SQLite stores as string)
+        registered_at = reg.registered_at
+        if hasattr(registered_at, "isoformat"):
+            registered_at = registered_at.isoformat()
         row = [
             reg.user.telegram_id,
             reg.user.username or "",
             reg.user.first_name or "",
             reg.user.last_name or "",
-            reg.registered_at.isoformat(),
+            registered_at,
         ]
         if event.custom_question:
             row.append(reg.answer or "")
