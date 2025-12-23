@@ -1,0 +1,29 @@
+# Workshop Signup Bot Configuration
+
+[bot]
+# Telegram user IDs of admins (can manage events, broadcast, etc.)
+admin_ids = []
+
+# Group chat ID where admin commands are allowed
+# If not set, admin commands only work in DM with bot
+# admin_group_id = -1001234567890
+
+[system_messages]
+# Shown when user starts bot with no active event
+no_active_event = "No current events at the moment. Subscribe to our channel for updates!"
+
+# Shown when registration is cancelled (event ended/archived)
+event_not_available = "This event is no longer accepting registrations."
+
+[default_event_messages]
+# Shown after successful registration. Supports {event_title}, {user_name}
+registration_success = "You're registered for {event_title}! We'll send you reminders before the event."
+
+# Shown when user is already registered
+already_registered = "You're already registered for {event_title}!"
+
+# Button text for cancelling registration
+cancel_button_text = "I can't make it"
+
+# Shown after user cancels registration
+cancel_confirmation = "No problem, thanks for letting us know! You've been unregistered from {event_title}."
