@@ -15,6 +15,14 @@ from aiogram.types import (
 )
 
 from src.config import Config
+from src.formatting import (
+    build_broadcast_buttons,
+    format_endevent_result,
+    format_event_created,
+    format_event_info,
+    format_history_list,
+    format_stats_message,
+)
 from src.models import Event, Registration, User, utcnow
 
 router = Router()
@@ -202,7 +210,7 @@ async def cmd_start_with_code(
         ]
     )
     await message.answer(
-        f"📋 *{event.title}*\n\n{event.description}\n\n📅 {event.datetime_text}",
+        format_event_info(event.title, event.description, event.datetime_text),
         parse_mode="Markdown",
         reply_markup=keyboard,
     )
@@ -249,7 +257,7 @@ async def cmd_start(message: Message, config: Config) -> None:
         ]
     )
     await message.answer(
-        f"📋 *{event.title}*\n\n{event.description}\n\n📅 {event.datetime_text}",
+        format_event_info(event.title, event.description, event.datetime_text),
         parse_mode="Markdown",
         reply_markup=keyboard,
     )
@@ -278,7 +286,10 @@ async def handle_option_answer(
 
 @router.message(RegistrationStates.answer)
 async def handle_text_answer(
-    message: Message, config: Config, state: FSMContext
+    message: Message,
+    config: Config,
+    state: FSMContext,
+    bot: Bot,
 ) -> None:
     """Handle text answer for custom question."""
     data = await state.get_data()
@@ -289,6 +300,17 @@ async def handle_text_answer(
     answer = None if message.text == "/skip" else message.text
     Registration.create(user=user, event=event, answer=answer)
     await state.clear()
+
+    # Remove the skip button from the question message
+    if "question_message_id" in data:
+        try:
+            await bot.edit_message_reply_markup(
+                chat_id=data["question_chat_id"],
+                message_id=data["question_message_id"],
+                reply_markup=None,
+            )
+        except Exception:  # noqa: S110
+            pass  # Message might be too old or deleted
 
     msg = get_event_message(event, "registration_success", config)
     await message.answer(
@@ -411,7 +433,10 @@ async def handle_register_button(
     """Handle register button click from /start message."""
     event_id = int(callback.data.split(":")[1])
 
-    event = Event.get_or_none(Event.id == event_id, Event.is_active == True)  # noqa: E712
+    event = Event.get_or_none(
+        Event.id == event_id,
+        Event.is_active == True,  # noqa: E712
+    )
     if not event:
         await callback.answer(config.system_messages.event_not_available)
         return
@@ -458,9 +483,13 @@ async def handle_register_button(
                 ]
             )
             await callback.message.edit_text(
-                f"📋 *{event.title}*\n\n"
-                f"{config.system_messages.question_intro}\n\n"
-                f"{event.custom_question}",
+                "\n\n".join(
+                    [
+                        f"📋 *{event.title}*",
+                        config.system_messages.question_intro,
+                        event.custom_question,
+                    ]
+                ),
                 reply_markup=keyboard,
                 parse_mode="Markdown",
             )
@@ -477,11 +506,20 @@ async def handle_register_button(
                 ]
             )
             await callback.message.edit_text(
-                f"📋 *{event.title}*\n\n"
-                f"{config.system_messages.question_intro}\n\n"
-                f"{event.custom_question}",
+                "\n\n".join(
+                    [
+                        f"📋 *{event.title}*",
+                        config.system_messages.question_intro,
+                        event.custom_question,
+                    ]
+                ),
                 reply_markup=keyboard,
                 parse_mode="Markdown",
+            )
+            # Store message info to edit it later when text answer arrives
+            await state.update_data(
+                question_chat_id=callback.message.chat.id,
+                question_message_id=callback.message.message_id,
             )
         await callback.answer()
         return
@@ -528,7 +566,6 @@ async def cmd_newevent(message: Message, config: Config, state: FSMContext) -> N
 async def process_event_title(
     message: Message, config: Config, state: FSMContext
 ) -> None:
-    """Process event title."""
     if not config.is_admin_context(message.chat.id, message.from_user.id):
         return
 
@@ -541,7 +578,6 @@ async def process_event_title(
 async def process_event_description(
     message: Message, config: Config, state: FSMContext
 ) -> None:
-    """Process event description."""
     if not config.is_admin_context(message.chat.id, message.from_user.id):
         return
 
@@ -554,7 +590,6 @@ async def process_event_description(
 async def process_event_datetime(
     message: Message, config: Config, state: FSMContext
 ) -> None:
-    """Process event datetime."""
     if not config.is_admin_context(message.chat.id, message.from_user.id):
         return
 
@@ -564,8 +599,12 @@ async def process_event_datetime(
 
     await state.set_state(NewEventStates.event_code)
     await message.answer(
-        f"🔗 Event code for the registration link?\n\n"
-        f"Only a-z, 0-9, _ allowed. Example: {suggested}",
+        "\n\n".join(
+            [
+                "🔗 Event code for the registration link?",
+                f"Only a-z, 0-9, _ allowed. Example: {suggested}",
+            ]
+        ),
     )
 
 
@@ -625,7 +664,7 @@ async def process_custom_question(
         bot_info = await bot.get_me()
         link = f"https://t.me/{bot_info.username}?start={data['event_code']}"
         await message.answer(
-            f"✅ *Event created!*\n\n📋 {event.title}\n🔗 Registration link:\n`{link}`",
+            format_event_created(event.title, link),
             parse_mode="Markdown",
         )
         return
@@ -671,10 +710,11 @@ async def process_question_type(
         bot_info = await bot.get_me()
         link = f"https://t.me/{bot_info.username}?start={data['event_code']}"
         await callback.message.edit_text(
-            f"✅ *Event created!*\n\n"
-            f"📋 {event.title}\n"
-            f"❓ Question: {event.custom_question}\n"
-            f"🔗 Registration link:\n`{link}`",
+            format_event_created(
+                event.title,
+                link,
+                custom_question=event.custom_question,
+            ),
             parse_mode="Markdown",
         )
     else:
@@ -708,13 +748,13 @@ async def process_question_options(
 
     bot_info = await bot.get_me()
     link = f"https://t.me/{bot_info.username}?start={data['event_code']}"
-    options = event.get_options_list()
     await message.answer(
-        f"✅ *Event created!*\n\n"
-        f"📋 {event.title}\n"
-        f"❓ Question: {event.custom_question}\n"
-        f"📝 Options: {', '.join(options)}\n"
-        f"🔗 Registration link:\n`{link}`",
+        format_event_created(
+            event.title,
+            link,
+            custom_question=event.custom_question,
+            options=event.get_options_list(),
+        ),
         parse_mode="Markdown",
     )
 
@@ -775,17 +815,23 @@ async def handle_endevent_export(
         return
 
     event_id = int(callback.data.split(":")[2])
-    event = Event.get_or_none(Event.id == event_id, Event.is_active == True)  # noqa: E712
+    event = Event.get_or_none(
+        Event.id == event_id,
+        Event.is_active == True,  # noqa: E712
+    )
     if not event:
         await callback.answer("Event not found or already ended")
         return
 
     output = generate_event_csv(event)
     file = BufferedInputFile(
-        output.getvalue().encode("utf-8"), filename=f"{event.code}_registrations.csv"
+        output.getvalue().encode("utf-8"),
+        filename=f"{event.code}_registrations.csv",
     )
     await bot.send_document(
-        callback.message.chat.id, file, caption=f"📋 Registrations for {event.title}"
+        callback.message.chat.id,
+        file,
+        caption=f"📋 Registrations for {event.title}",
     )
     await callback.answer("CSV exported!")
 
@@ -802,7 +848,10 @@ async def handle_endevent_confirm(
     event_id = int(parts[2])
     notify = parts[3] == "notify"
 
-    event = Event.get_or_none(Event.id == event_id, Event.is_active == True)  # noqa: E712
+    event = Event.get_or_none(
+        Event.id == event_id,
+        Event.is_active == True,  # noqa: E712
+    )
     if not event:
         await callback.answer("Event not found or already ended")
         return
@@ -832,20 +881,13 @@ async def handle_endevent_confirm(
             except Exception:
                 failed += 1
 
-    result_text = (
-        f'✅ *Event "{event.title}" archived.*\n\n'
-        f"📊 Final stats:\n"
-        f"Registered: {stats['registered']}\n"
-        f"Confirmed: {stats['confirmed']}\n"
-        f"Cancelled: {stats['cancelled']}"
+    result_text = format_endevent_result(
+        event.title,
+        stats,
+        notify,
+        sent,
+        failed,
     )
-    if notify:
-        result_text += f"\n\n📤 Notifications sent: {sent}"
-        if failed:
-            result_text += f" (failed: {failed})"
-
-    result_text += "\n\nUse /history to view past events."
-
     await callback.message.edit_text(result_text, parse_mode="Markdown")
     await callback.answer()
 
@@ -883,9 +925,13 @@ async def cmd_broadcast(message: Message, config: Config, state: FSMContext) -> 
     await state.set_state(BroadcastStates.message)
     await state.update_data(event_id=event.id)
     await message.answer(
-        f"📢 *Broadcast to {event.title}*\n\n"
-        f"Recipients: {reg_count} registrants\n\n"
-        f"Type your message:",
+        "\n\n".join(
+            [
+                f"📢 *Broadcast to {event.title}*",
+                f"Recipients: {reg_count} registrants",
+                "Type your message:",
+            ]
+        ),
         parse_mode="Markdown",
     )
 
@@ -923,53 +969,11 @@ async def process_broadcast_message(
         .count()
     )
 
-    buttons = []
-    if event.confirmation_sent:
-        # Confirmation already sent - offer smart targeting
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text=f"📤 Send to all ({all_count})",
-                    callback_data="broadcast:send:no_buttons:all",
-                ),
-            ]
-        )
-        if non_responders_count > 0 and non_responders_count < all_count:
-            buttons.append(
-                [
-                    InlineKeyboardButton(
-                        text=f"🎯 Send to non-responders ({non_responders_count}) + buttons",
-                        callback_data="broadcast:send:buttons:non_responders",
-                    ),
-                ]
-            )
-        prompt = "_Confirmation was already sent. Choose recipients:_"
-    else:
-        # First broadcast - offer button options
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text="✅ Include participation confirmation buttons",
-                    callback_data="broadcast:send:buttons:all",
-                ),
-            ]
-        )
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text="📤 Send without buttons",
-                    callback_data="broadcast:send:no_buttons:all",
-                ),
-            ]
-        )
-        prompt = "_Include participation confirmation buttons?_"
-
-    buttons.append(
-        [
-            InlineKeyboardButton(text="❌ Cancel", callback_data="broadcast:cancel"),
-        ]
+    buttons, prompt = build_broadcast_buttons(
+        all_count,
+        non_responders_count,
+        event.confirmation_sent,
     )
-
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     await message.answer(
         f"📢 *Preview:*\n\n{message.text}\n\n{prompt}",
@@ -1065,38 +1069,16 @@ async def cmd_stats(message: Message, config: Config) -> None:
         await message.answer("No active event.")
         return
 
-    total = Registration.select().where(Registration.event == event).count()
-    active = (
-        Registration.select()
-        .where(
-            Registration.event == event,
-            Registration.cancelled == False,  # noqa: E712
-        )
-        .count()
-    )
-    confirmed = (
-        Registration.select()
-        .where(
-            Registration.event == event,
-            Registration.cancelled == False,  # noqa: E712
-            Registration.confirmed == True,  # noqa: E712
-        )
-        .count()
-    )
-    cancelled = total - active
+    stats = get_event_stats(event)
 
-    text = (
-        f"📊 *Stats: {event.title}*\n\n"
-        f"🎉 Confirmed: {confirmed}\n"
-        f"📋 Registered: {active}\n"
-        f"❌ Cancelled: {cancelled}"
-    )
-
-    # If there's a custom question with options, show answer breakdown
+    # Build answer counts if event has options question
+    options = None
+    answer_counts = None
     if event.question_type == "options":
-        text += "\n\n*Answers:*"
-        for opt in event.get_options_list():
-            count = (
+        options = event.get_options_list()
+        answer_counts = {}
+        for opt in options:
+            answer_counts[opt] = (
                 Registration.select()
                 .where(
                     Registration.event == event,
@@ -1105,8 +1087,8 @@ async def cmd_stats(message: Message, config: Config) -> None:
                 )
                 .count()
             )
-            text += f"\n• {opt}: {count}"
 
+    text = format_stats_message(event.title, stats, options, answer_counts)
     await message.answer(text, parse_mode="Markdown")
 
 
@@ -1146,23 +1128,16 @@ async def cmd_history(message: Message, config: Config) -> None:
         await message.answer("No archived events yet.")
         return
 
-    text = "📜 *Past Events:*\n"
-    buttons = []
-
-    for i, event in enumerate(events_list, 1):
+    # Prepare data for formatting
+    events_data = []
+    for event in events_list:
         stats = get_event_stats(event)
         archived_date = (
             event.archived_at.strftime("%b %d, %Y") if event.archived_at else "Unknown"
         )
-        text += (
-            f"\n*{i}. {event.title}* ({archived_date})\n"
-            f"   Registered: {stats['registered']} | Confirmed: {stats['confirmed']}\n"
-        )
-        buttons.append(
-            InlineKeyboardButton(
-                text=f"📤 #{i}", callback_data=f"history:export:{event.id}"
-            )
-        )
+        events_data.append((event.id, event.title, archived_date, stats))
+
+    text, buttons = format_history_list(events_data)
 
     # Arrange buttons in rows of 5
     button_rows = [buttons[i : i + 5] for i in range(0, len(buttons), 5)]
