@@ -84,8 +84,8 @@ def test_get_event_stats_with_registrations(sample_event, sample_user, temp_db):
 
     # Create registrations with different states
     Registration.create(user=sample_user, event=sample_event)  # active, not confirmed
-    reg2 = Registration.create(user=user2, event=sample_event, confirmed=True)  # confirmed
-    reg3 = Registration.create(user=user3, event=sample_event, cancelled=True)  # cancelled
+    _ = Registration.create(user=user2, event=sample_event, confirmed=True)  # confirmed
+    _ = Registration.create(user=user3, event=sample_event, cancelled=True)  # cancelled
 
     stats = get_event_stats(sample_event)
 
