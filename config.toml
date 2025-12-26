@@ -47,6 +47,15 @@ history_command_description = "View past events"
 # Message shown when admin selects to broadcast to past event registrants
 history_broadcast_intro = "📢 *Broadcast to {event_title}*\n\nRecipients: {count} past registrants\n\nType your message:"
 
+# Description for /broadcasts command in bot menu
+broadcasts_command_description = "View broadcast history"
+
+# Shown when no broadcasts have been sent
+no_broadcasts = "No broadcasts have been sent yet."
+
+# Header for broadcast history view (supports {event_title})
+broadcast_history_header = "📢 *Broadcast History for {event_title}*\n\n"
+
 [default_event_messages]
 # Shown after successful registration. Supports {event_title}, {user_name}
 registration_success = "You're registered for {event_title}! We'll send you reminders before the event."

@@ -1,4 +1,4 @@
-from src.models import Event, Registration, User, utcnow
+from src.models import Broadcast, Event, Registration, User, utcnow
 
 
 def test_user_display_name_full(sample_user):
@@ -74,3 +74,55 @@ def test_registration_cancel(sample_user, sample_event):
     reg_reloaded = Registration.get_by_id(reg.id)
     assert reg_reloaded.cancelled is True
     assert reg_reloaded.cancelled_at is not None
+
+
+def test_broadcast_create(sample_event):
+    bc = Broadcast.create(
+        event=sample_event,
+        message_text="Test broadcast message",
+        target_audience="all",
+        include_buttons=True,
+        sent_count=5,
+        failed_count=1,
+    )
+
+    assert bc.event.id == sample_event.id
+    assert bc.message_text == "Test broadcast message"
+    assert bc.target_audience == "all"
+    assert bc.include_buttons is True
+    assert bc.sent_count == 5
+    assert bc.failed_count == 1
+    assert bc.sent_at is not None
+
+
+def test_broadcast_non_responders_audience(sample_event):
+    bc = Broadcast.create(
+        event=sample_event,
+        message_text="Reminder for non-responders",
+        target_audience="non_responders",
+        include_buttons=False,
+        sent_count=3,
+        failed_count=0,
+    )
+
+    assert bc.target_audience == "non_responders"
+    assert bc.include_buttons is False
+
+
+def test_broadcast_backref(sample_event):
+    Broadcast.create(
+        event=sample_event,
+        message_text="First broadcast",
+        target_audience="all",
+    )
+    Broadcast.create(
+        event=sample_event,
+        message_text="Second broadcast",
+        target_audience="non_responders",
+    )
+
+    broadcasts = list(sample_event.broadcasts)
+    assert len(broadcasts) == 2
+    messages = [bc.message_text for bc in broadcasts]
+    assert "First broadcast" in messages
+    assert "Second broadcast" in messages

@@ -55,6 +55,9 @@ stats_command_description = "Stats"
 export_command_description = "Export"
 history_command_description = "History"
 history_broadcast_intro = "Broadcast to {event_title}. Recipients: {count}"
+broadcasts_command_description = "View broadcast history"
+no_broadcasts = "No broadcasts have been sent yet."
+broadcast_history_header = "Broadcast History for {event_title}"
 
 [default_event_messages]
 registration_success = "Done"

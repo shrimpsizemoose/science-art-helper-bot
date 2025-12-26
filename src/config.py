@@ -21,6 +21,9 @@ class SystemMessages:
     export_command_description: str
     history_command_description: str
     history_broadcast_intro: str
+    broadcasts_command_description: str
+    no_broadcasts: str
+    broadcast_history_header: str
 
 
 @dataclass
@@ -85,6 +88,9 @@ class Config:
                 export_command_description=sys_msg_data["export_command_description"],
                 history_command_description=sys_msg_data["history_command_description"],
                 history_broadcast_intro=sys_msg_data["history_broadcast_intro"],
+                broadcasts_command_description=sys_msg_data["broadcasts_command_description"],
+                no_broadcasts=sys_msg_data["no_broadcasts"],
+                broadcast_history_header=sys_msg_data["broadcast_history_header"],
             ),
             default_event_messages=DefaultEventMessages(
                 registration_success=event_msg_data["registration_success"],

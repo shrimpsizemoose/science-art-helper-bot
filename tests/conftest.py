@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from src.models import Event, User, db, init_db
+from src.models import Broadcast, Event, User, db, init_db
 
 
 @pytest.fixture
@@ -42,6 +42,9 @@ stats_command_description = "View registration statistics"
 export_command_description = "Export registrations to CSV"
 history_command_description = "View past events"
 history_broadcast_intro = "Broadcast to {event_title}. Recipients: {count}"
+broadcasts_command_description = "View broadcast history"
+no_broadcasts = "No broadcasts have been sent yet."
+broadcast_history_header = "Broadcast History for {event_title}"
 
 [default_event_messages]
 registration_success = "Registered for {event_title}!"
@@ -76,4 +79,16 @@ def sample_event(temp_db):
         custom_question="What's your level?",
         question_type="options",
         question_options="Beginner, Intermediate, Advanced",
+    )
+
+
+@pytest.fixture
+def sample_broadcast(sample_event):
+    return Broadcast.create(
+        event=sample_event,
+        message_text="Hello everyone! Reminder about the workshop.",
+        target_audience="all",
+        include_buttons=True,
+        sent_count=10,
+        failed_count=2,
     )

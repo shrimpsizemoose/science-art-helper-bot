@@ -23,7 +23,7 @@ from src.formatting import (
     format_history_list,
     format_stats_message,
 )
-from src.models import Event, Registration, User, utcnow
+from src.models import Broadcast, Event, Registration, User, utcnow
 
 router = Router()
 
@@ -1056,6 +1056,16 @@ async def send_broadcast(
         except Exception:
             failed += 1
 
+    # Save broadcast record
+    Broadcast.create(
+        event=event,
+        message_text=broadcast_text,
+        target_audience=target,
+        include_buttons=include_buttons,
+        sent_count=sent,
+        failed_count=failed,
+    )
+
     await callback.message.edit_text(
         f"✅ *Broadcast sent!*\n\n📤 Sent: {sent}\n❌ Failed: {failed}",
         parse_mode="Markdown",
@@ -1213,6 +1223,16 @@ async def handle_history_broadcast_send(
         except Exception:
             failed += 1
 
+    # Save broadcast record (history broadcasts don't include buttons)
+    Broadcast.create(
+        event=event,
+        message_text=broadcast_text,
+        target_audience="all",
+        include_buttons=False,
+        sent_count=sent,
+        failed_count=failed,
+    )
+
     await state.clear()
     await callback.message.edit_text(
         f"✅ *Broadcast sent to {event.title}!*\n\n📤 Sent: {sent}\n❌ Failed: {failed}",
@@ -1311,6 +1331,240 @@ async def process_history_broadcast_message(
         reply_markup=keyboard,
         parse_mode="Markdown",
     )
+
+
+# --- Broadcasts History Handlers ---
+
+
+@router.message(Command("broadcasts"))
+async def cmd_broadcasts(message: Message, config: Config) -> None:
+    """Show events with broadcast counts."""
+    if not config.is_admin_context(message.chat.id, message.from_user.id):
+        return
+
+    # Get all events that have broadcasts
+    events_with_broadcasts = (
+        Event.select()
+        .join(Broadcast)
+        .group_by(Event)
+        .order_by(Event.created_at.desc())
+    )
+
+    events_list = list(events_with_broadcasts)
+    if not events_list:
+        await message.answer(config.system_messages.no_broadcasts)
+        return
+
+    text = "📢 *Broadcast History*\n\n"
+    buttons = []
+
+    for i, event in enumerate(events_list, 1):
+        broadcast_count = Broadcast.select().where(Broadcast.event == event).count()
+        status = "Active" if event.is_active else "Archived"
+        text += f"{i}. *{event.title}* ({status})\n   {broadcast_count} broadcasts\n\n"
+        buttons.append(
+            InlineKeyboardButton(
+                text=f"{i}",
+                callback_data=f"broadcasts:event:{event.id}",
+            )
+        )
+
+    # Arrange buttons in rows of 5
+    button_rows = [buttons[i : i + 5] for i in range(0, len(buttons), 5)]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=button_rows)
+
+    await message.answer(text, parse_mode="Markdown", reply_markup=keyboard)
+
+
+@router.callback_query(F.data.startswith("broadcasts:event:"))
+async def handle_broadcasts_event(
+    callback: CallbackQuery, config: Config, bot: Bot
+) -> None:
+    """View broadcasts for a specific event."""
+    if not config.is_admin_context(callback.message.chat.id, callback.from_user.id):
+        return
+
+    event_id = int(callback.data.split(":")[2])
+    event = Event.get_or_none(Event.id == event_id)
+    if not event:
+        await callback.answer("Event not found")
+        return
+
+    broadcasts = (
+        Broadcast.select()
+        .where(Broadcast.event == event)
+        .order_by(Broadcast.sent_at.desc())
+    )
+
+    broadcasts_list = list(broadcasts)
+    if not broadcasts_list:
+        await callback.answer("No broadcasts for this event")
+        return
+
+    header = config.system_messages.broadcast_history_header.format(
+        event_title=event.title
+    )
+    text = header
+
+    buttons = []
+    for i, bc in enumerate(broadcasts_list, 1):
+        # Format timestamp
+        sent_at = bc.sent_at
+        if hasattr(sent_at, "strftime"):
+            sent_str = sent_at.strftime("%b %d, %H:%M")
+        else:
+            sent_str = str(sent_at)[:16]
+
+        # Truncate message preview
+        preview = bc.message_text[:50] + "..." if len(bc.message_text) > 50 else bc.message_text
+        preview = preview.replace("\n", " ")
+
+        audience = "All" if bc.target_audience == "all" else "Non-responders"
+        btns = "w/ buttons" if bc.include_buttons else ""
+
+        text += f"{i}. {sent_str} | {audience} {btns}\n"
+        text += f"   📤 {bc.sent_count} ❌ {bc.failed_count}\n"
+        text += f"   _{preview}_\n\n"
+
+        buttons.append(
+            InlineKeyboardButton(
+                text=f"{i}",
+                callback_data=f"broadcasts:detail:{bc.id}",
+            )
+        )
+
+    # Add export button
+    export_btn = InlineKeyboardButton(
+        text="📥 Export JSON",
+        callback_data=f"broadcasts:export:{event.id}",
+    )
+    back_btn = InlineKeyboardButton(
+        text="« Back",
+        callback_data="broadcasts:back",
+    )
+
+    # Arrange detail buttons in rows of 5
+    button_rows = [buttons[i : i + 5] for i in range(0, len(buttons), 5)]
+    button_rows.append([export_btn, back_btn])
+    keyboard = InlineKeyboardMarkup(inline_keyboard=button_rows)
+
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("broadcasts:detail:"))
+async def handle_broadcasts_detail(callback: CallbackQuery, config: Config) -> None:
+    """View full details of a single broadcast."""
+    if not config.is_admin_context(callback.message.chat.id, callback.from_user.id):
+        return
+
+    broadcast_id = int(callback.data.split(":")[2])
+    bc = Broadcast.get_or_none(Broadcast.id == broadcast_id)
+    if not bc:
+        await callback.answer("Broadcast not found")
+        return
+
+    event = bc.event
+
+    # Format timestamp
+    sent_at = bc.sent_at
+    if hasattr(sent_at, "strftime"):
+        sent_str = sent_at.strftime("%Y-%m-%d %H:%M:%S UTC")
+    else:
+        sent_str = str(sent_at)
+
+    audience = "All registrants" if bc.target_audience == "all" else "Non-responders only"
+    btns = "Yes" if bc.include_buttons else "No"
+
+    text = "📢 *Broadcast Details*\n\n"
+    text += f"*Event:* {event.title}\n"
+    text += f"*Sent:* {sent_str}\n"
+    text += f"*Audience:* {audience}\n"
+    text += f"*With buttons:* {btns}\n"
+    text += f"*Delivered:* {bc.sent_count}\n"
+    text += f"*Failed:* {bc.failed_count}\n\n"
+    text += f"*Message:*\n{bc.message_text}"
+
+    back_btn = InlineKeyboardButton(
+        text="« Back to event",
+        callback_data=f"broadcasts:event:{event.id}",
+    )
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[[back_btn]])
+
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("broadcasts:export:"))
+async def handle_broadcasts_export(
+    callback: CallbackQuery, config: Config, bot: Bot
+) -> None:
+    """Export broadcasts as JSON for the event."""
+    if not config.is_admin_context(callback.message.chat.id, callback.from_user.id):
+        return
+
+    event_id = int(callback.data.split(":")[2])
+    event = Event.get_or_none(Event.id == event_id)
+    if not event:
+        await callback.answer("Event not found")
+        return
+
+    from src.export import generate_broadcasts_json
+
+    json_data = generate_broadcasts_json(event)
+
+    file = BufferedInputFile(
+        json_data.encode("utf-8"),
+        filename=f"{event.code}_broadcasts.json",
+    )
+    await bot.send_document(
+        callback.message.chat.id,
+        file,
+        caption=f"📊 Broadcast history for {event.title}",
+    )
+    await callback.answer("JSON exported!")
+
+
+@router.callback_query(F.data == "broadcasts:back")
+async def handle_broadcasts_back(callback: CallbackQuery, config: Config) -> None:
+    """Go back to broadcasts list."""
+    if not config.is_admin_context(callback.message.chat.id, callback.from_user.id):
+        return
+
+    # Get all events that have broadcasts
+    events_with_broadcasts = (
+        Event.select()
+        .join(Broadcast)
+        .group_by(Event)
+        .order_by(Event.created_at.desc())
+    )
+
+    events_list = list(events_with_broadcasts)
+    if not events_list:
+        await callback.message.edit_text(config.system_messages.no_broadcasts)
+        await callback.answer()
+        return
+
+    text = "📢 *Broadcast History*\n\n"
+    buttons = []
+
+    for i, event in enumerate(events_list, 1):
+        broadcast_count = Broadcast.select().where(Broadcast.event == event).count()
+        status = "Active" if event.is_active else "Archived"
+        text += f"{i}. *{event.title}* ({status})\n   {broadcast_count} broadcasts\n\n"
+        buttons.append(
+            InlineKeyboardButton(
+                text=f"{i}",
+                callback_data=f"broadcasts:event:{event.id}",
+            )
+        )
+
+    # Arrange buttons in rows of 5
+    button_rows = [buttons[i : i + 5] for i in range(0, len(buttons), 5)]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=button_rows)
+
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+    await callback.answer()
 
 
 # --- Fallback Handler ---

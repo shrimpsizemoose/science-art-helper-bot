@@ -101,6 +101,18 @@ class Registration(BaseModel):
         indexes = ((("user", "event"), True),)  # Unique together
 
 
+class Broadcast(BaseModel):
+    """Record of a broadcast message sent to event registrants."""
+
+    event = ForeignKeyField(Event, backref="broadcasts")
+    message_text = TextField()
+    target_audience = CharField()  # 'all' or 'non_responders'
+    include_buttons = BooleanField(default=False)
+    sent_count = BigIntegerField(default=0)
+    failed_count = BigIntegerField(default=0)
+    sent_at = DateTimeField(default=utcnow)
+
+
 def init_db(database_url: str) -> None:
     """Initialize database connection and create tables."""
     parsed = urlparse(database_url)
@@ -121,4 +133,4 @@ def init_db(database_url: str) -> None:
 
     db.initialize(database)
     db.connect(reuse_if_open=True)
-    db.create_tables([User, Event, Registration])
+    db.create_tables([User, Event, Registration, Broadcast])
