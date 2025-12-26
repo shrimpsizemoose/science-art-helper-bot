@@ -50,6 +50,11 @@ class RegistrationStates(StatesGroup):
     answer = State()
 
 
+class HistoryBroadcastStates(StatesGroup):
+    message = State()
+    confirm = State()
+
+
 # --- Helpers ---
 
 
@@ -1137,11 +1142,14 @@ async def cmd_history(message: Message, config: Config) -> None:
         )
         events_data.append((event.id, event.title, archived_date, stats))
 
-    text, buttons = format_history_list(events_data)
+    text, export_buttons, broadcast_buttons = format_history_list(events_data)
 
     # Arrange buttons in rows of 5
-    button_rows = [buttons[i : i + 5] for i in range(0, len(buttons), 5)]
-    keyboard = InlineKeyboardMarkup(inline_keyboard=button_rows)
+    export_rows = [export_buttons[i : i + 5] for i in range(0, len(export_buttons), 5)]
+    broadcast_rows = [
+        broadcast_buttons[i : i + 5] for i in range(0, len(broadcast_buttons), 5)
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=export_rows + broadcast_rows)
 
     await message.answer(text, parse_mode="Markdown", reply_markup=keyboard)
 
@@ -1150,7 +1158,6 @@ async def cmd_history(message: Message, config: Config) -> None:
 async def handle_history_export(
     callback: CallbackQuery, config: Config, bot: Bot
 ) -> None:
-    """Export CSV for archived event."""
     if not config.is_admin_context(callback.message.chat.id, callback.from_user.id):
         return
 
@@ -1168,6 +1175,142 @@ async def handle_history_export(
         callback.message.chat.id, file, caption=f"📋 Registrations for {event.title}"
     )
     await callback.answer("CSV exported!")
+
+
+@router.callback_query(F.data.startswith("history:broadcast:send:"))
+async def handle_history_broadcast_send(
+    callback: CallbackQuery, config: Config, state: FSMContext, bot: Bot
+) -> None:
+    if not config.is_admin_context(callback.message.chat.id, callback.from_user.id):
+        return
+
+    event_id = int(callback.data.split(":")[3])
+    data = await state.get_data()
+    broadcast_text = data.get("broadcast_text")
+
+    if not broadcast_text:
+        await callback.answer("No message to send")
+        return
+
+    event = Event.get_or_none(Event.id == event_id)
+    if not event:
+        await callback.answer("Event not found")
+        await state.clear()
+        return
+
+    registrations = Registration.select().where(
+        Registration.event == event,
+        Registration.cancelled == False,  # noqa: E712
+    )
+
+    sent = 0
+    failed = 0
+
+    for reg in registrations:
+        try:
+            await bot.send_message(reg.user.telegram_id, broadcast_text)
+            sent += 1
+        except Exception:
+            failed += 1
+
+    await state.clear()
+    await callback.message.edit_text(
+        f"✅ *Broadcast sent to {event.title}!*\n\n📤 Sent: {sent}\n❌ Failed: {failed}",
+        parse_mode="Markdown",
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "history:broadcast:cancel")
+async def handle_history_broadcast_cancel(
+    callback: CallbackQuery, state: FSMContext
+) -> None:
+    await state.clear()
+    await callback.message.edit_text("❌ Broadcast cancelled.")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("history:broadcast:"))
+async def handle_history_broadcast_start(
+    callback: CallbackQuery, config: Config, state: FSMContext
+) -> None:
+    if not config.is_admin_context(callback.message.chat.id, callback.from_user.id):
+        return
+
+    event_id = int(callback.data.split(":")[2])
+    event = Event.get_or_none(Event.id == event_id)
+    if not event:
+        await callback.answer("Event not found")
+        return
+
+    reg_count = (
+        Registration.select()
+        .where(
+            Registration.event == event,
+            Registration.cancelled == False,  # noqa: E712
+        )
+        .count()
+    )
+
+    if reg_count == 0:
+        await callback.answer("No registrants to message", show_alert=True)
+        return
+
+    await state.set_state(HistoryBroadcastStates.message)
+    await state.update_data(event_id=event.id)
+
+    intro = config.system_messages.history_broadcast_intro.format(
+        event_title=event.title,
+        count=reg_count,
+    )
+    await callback.message.edit_text(intro, parse_mode="Markdown")
+    await callback.answer()
+
+
+@router.message(HistoryBroadcastStates.message)
+async def process_history_broadcast_message(
+    message: Message, config: Config, state: FSMContext
+) -> None:
+    if not config.is_admin_context(message.chat.id, message.from_user.id):
+        return
+
+    data = await state.get_data()
+    event = Event.get_by_id(data["event_id"])
+
+    await state.update_data(broadcast_text=message.text)
+    await state.set_state(HistoryBroadcastStates.confirm)
+
+    reg_count = (
+        Registration.select()
+        .where(
+            Registration.event == event,
+            Registration.cancelled == False,  # noqa: E712
+        )
+        .count()
+    )
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=f"📤 Send to {reg_count} registrants",
+                    callback_data=f"history:broadcast:send:{event.id}",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="❌ Cancel",
+                    callback_data="history:broadcast:cancel",
+                ),
+            ],
+        ]
+    )
+
+    await message.answer(
+        f"📢 *Preview:*\n\n{message.text}\n\n_Send to {reg_count} past registrants of {event.title}?_",
+        reply_markup=keyboard,
+        parse_mode="Markdown",
+    )
 
 
 # --- Fallback Handler ---

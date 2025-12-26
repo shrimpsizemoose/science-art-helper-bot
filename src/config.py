@@ -20,6 +20,7 @@ class SystemMessages:
     stats_command_description: str
     export_command_description: str
     history_command_description: str
+    history_broadcast_intro: str
 
 
 @dataclass
@@ -83,6 +84,7 @@ class Config:
                 stats_command_description=sys_msg_data["stats_command_description"],
                 export_command_description=sys_msg_data["export_command_description"],
                 history_command_description=sys_msg_data["history_command_description"],
+                history_broadcast_intro=sys_msg_data["history_broadcast_intro"],
             ),
             default_event_messages=DefaultEventMessages(
                 registration_success=event_msg_data["registration_success"],

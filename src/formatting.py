@@ -106,23 +106,36 @@ def format_endevent_result(
 
 def format_history_list(
     events: list[tuple[int, str, str, dict]],
-) -> tuple[str, list[InlineKeyboardButton]]:
-    """events: list of (event_id, title, archived_date, stats)."""
+) -> tuple[str, list[InlineKeyboardButton], list[InlineKeyboardButton]]:
+    """Format history list with export and broadcast buttons.
+
+    Args:
+        events: list of (event_id, title, archived_date, stats)
+
+    Returns:
+        (text, export_buttons, broadcast_buttons)
+    """
     text = "📜 *Past Events:*\n"
-    buttons = []
+    export_buttons = []
+    broadcast_buttons = []
 
     for i, (event_id, title, archived_date, stats) in enumerate(events, 1):
         text += (
             f"\n*{i}. {title}* ({archived_date})\n"
             f"   Registered: {stats['registered']} | Confirmed: {stats['confirmed']}\n"
         )
-        buttons.append(
+        export_buttons.append(
             InlineKeyboardButton(
                 text=f"📤 #{i}", callback_data=f"history:export:{event_id}"
             )
         )
+        broadcast_buttons.append(
+            InlineKeyboardButton(
+                text=f"📢 #{i}", callback_data=f"history:broadcast:{event_id}"
+            )
+        )
 
-    return text, buttons
+    return text, export_buttons, broadcast_buttons
 
 
 def format_event_created(

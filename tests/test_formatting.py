@@ -144,28 +144,33 @@ class TestFormatHistoryList:
         events = [
             (1, "Workshop 1", "Dec 25, 2024", {"registered": 10, "confirmed": 8}),
         ]
-        text, buttons = format_history_list(events)
+        text, export_buttons, broadcast_buttons = format_history_list(events)
 
         assert "📜 *Past Events:*" in text
         assert "*1. Workshop 1*" in text
         assert "Dec 25, 2024" in text
         assert "Registered: 10" in text
         assert "Confirmed: 8" in text
-        assert len(buttons) == 1
-        assert buttons[0].callback_data == "history:export:1"
+        assert len(export_buttons) == 1
+        assert export_buttons[0].callback_data == "history:export:1"
+        assert len(broadcast_buttons) == 1
+        assert broadcast_buttons[0].callback_data == "history:broadcast:1"
 
     def test_multiple_events(self):
         events = [
             (1, "Event A", "Dec 1", {"registered": 5, "confirmed": 3}),
             (2, "Event B", "Dec 15", {"registered": 20, "confirmed": 18}),
         ]
-        text, buttons = format_history_list(events)
+        text, export_buttons, broadcast_buttons = format_history_list(events)
 
         assert "*1. Event A*" in text
         assert "*2. Event B*" in text
-        assert len(buttons) == 2
-        assert buttons[0].text == "📤 #1"
-        assert buttons[1].text == "📤 #2"
+        assert len(export_buttons) == 2
+        assert export_buttons[0].text == "📤 #1"
+        assert export_buttons[1].text == "📤 #2"
+        assert len(broadcast_buttons) == 2
+        assert broadcast_buttons[0].text == "📢 #1"
+        assert broadcast_buttons[1].text == "📢 #2"
 
 
 class TestFormatEventCreated:

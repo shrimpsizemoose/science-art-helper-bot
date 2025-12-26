@@ -41,6 +41,7 @@ broadcast_command_description = "Send message to registrants"
 stats_command_description = "View registration statistics"
 export_command_description = "Export registrations to CSV"
 history_command_description = "View past events"
+history_broadcast_intro = "Broadcast to {event_title}. Recipients: {count}"
 
 [default_event_messages]
 registration_success = "Registered for {event_title}!"
