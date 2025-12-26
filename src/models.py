@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from peewee import (
+    AutoField,
     BigIntegerField,
     BooleanField,
     CharField,
@@ -24,6 +25,8 @@ db = DatabaseProxy()
 
 
 class BaseModel(Model):
+    id = AutoField()
+
     class Meta:
         database = db
 
