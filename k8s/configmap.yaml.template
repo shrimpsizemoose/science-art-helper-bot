@@ -21,6 +21,12 @@ data:
     skip_question_button_text = "Skip"
     unknown_message = "Use /start to see current events and register."
     start_command_description = "Register for events"
+    newevent_command_description = "Create a new event"
+    endevent_command_description = "End current event"
+    broadcast_command_description = "Send message to registrants"
+    stats_command_description = "View registration statistics"
+    export_command_description = "Export registrations to CSV"
+    history_command_description = "View past events"
 
     [default_event_messages]
     registration_success = "You're registered for {event_title}! We'll send you reminders before the event."

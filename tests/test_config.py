@@ -48,6 +48,12 @@ question_intro = "Quick question:"
 skip_question_button_text = "Skip"
 unknown_message = "Use /start to register."
 start_command_description = "Register"
+newevent_command_description = "Create event"
+endevent_command_description = "End event"
+broadcast_command_description = "Broadcast"
+stats_command_description = "Stats"
+export_command_description = "Export"
+history_command_description = "History"
 
 [default_event_messages]
 registration_success = "Done"
@@ -66,6 +72,17 @@ cancel_confirmation = "Cancelled"
 
     # Admin in group
     assert config.is_admin_context(-1001234567890, 123456789) is False
+
+
+def test_admin_command_descriptions(sample_config_file):
+    config = Config.load(sample_config_file)
+
+    assert config.system_messages.newevent_command_description == "Create a new event"
+    assert config.system_messages.endevent_command_description == "End current event"
+    assert config.system_messages.broadcast_command_description == "Send message to registrants"
+    assert config.system_messages.stats_command_description == "View registration statistics"
+    assert config.system_messages.export_command_description == "Export registrations to CSV"
+    assert config.system_messages.history_command_description == "View past events"
 
 
 def test_config_file_not_found():

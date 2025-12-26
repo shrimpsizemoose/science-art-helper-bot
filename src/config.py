@@ -14,6 +14,12 @@ class SystemMessages:
     skip_question_button_text: str
     unknown_message: str
     start_command_description: str
+    newevent_command_description: str
+    endevent_command_description: str
+    broadcast_command_description: str
+    stats_command_description: str
+    export_command_description: str
+    history_command_description: str
 
 
 @dataclass
@@ -28,10 +34,10 @@ class DefaultEventMessages:
 
 @dataclass
 class Config:
+    system_messages: SystemMessages
+    default_event_messages: DefaultEventMessages
     admin_ids: list[int] = field(default_factory=list)
     admin_group_id: int | None = None
-    system_messages: SystemMessages | None = None
-    default_event_messages: DefaultEventMessages | None = None
 
     def is_admin(self, user_id: int) -> bool:
         return user_id in self.admin_ids
@@ -71,6 +77,12 @@ class Config:
                 skip_question_button_text=sys_msg_data["skip_question_button_text"],
                 unknown_message=sys_msg_data["unknown_message"],
                 start_command_description=sys_msg_data["start_command_description"],
+                newevent_command_description=sys_msg_data["newevent_command_description"],
+                endevent_command_description=sys_msg_data["endevent_command_description"],
+                broadcast_command_description=sys_msg_data["broadcast_command_description"],
+                stats_command_description=sys_msg_data["stats_command_description"],
+                export_command_description=sys_msg_data["export_command_description"],
+                history_command_description=sys_msg_data["history_command_description"],
             ),
             default_event_messages=DefaultEventMessages(
                 registration_success=event_msg_data["registration_success"],

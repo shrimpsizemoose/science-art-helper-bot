@@ -35,6 +35,12 @@ question_intro = "Quick question:"
 skip_question_button_text = "Skip"
 unknown_message = "Use /start to register."
 start_command_description = "Register"
+newevent_command_description = "Create a new event"
+endevent_command_description = "End current event"
+broadcast_command_description = "Send message to registrants"
+stats_command_description = "View registration statistics"
+export_command_description = "Export registrations to CSV"
+history_command_description = "View past events"
 
 [default_event_messages]
 registration_success = "Registered for {event_title}!"
