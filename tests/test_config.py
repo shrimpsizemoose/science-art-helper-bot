@@ -63,6 +63,7 @@ visualization_success = "Done {url}"
 visualization_local_success = "Saved {path}"
 visualization_generating = "Generating..."
 visualization_no_events = "No events"
+end_broadcast_intro = "Broadcast to {event_title}. Recipients: {count}. Template: {template}"
 
 [default_event_messages]
 registration_success = "Done"

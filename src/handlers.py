@@ -56,6 +56,11 @@ class HistoryBroadcastStates(StatesGroup):
     confirm = State()
 
 
+class EndBroadcastStates(StatesGroup):
+    message = State()
+    confirm = State()
+
+
 # --- Helpers ---
 
 
@@ -787,8 +792,8 @@ async def cmd_endevent(message: Message, config: Config) -> None:
             ],
             [
                 InlineKeyboardButton(
-                    text="✅ End & notify",
-                    callback_data=f"endevent:end:{event.id}:notify",
+                    text="📢 End & Broadcast",
+                    callback_data=f"endevent:end:{event.id}:broadcast",
                 ),
                 InlineKeyboardButton(
                     text="🗑 End silently",
@@ -844,15 +849,15 @@ async def handle_endevent_export(
 
 @router.callback_query(F.data.startswith("endevent:end:"))
 async def handle_endevent_confirm(
-    callback: CallbackQuery, config: Config, bot: Bot
+    callback: CallbackQuery, config: Config, state: FSMContext
 ) -> None:
-    """Archive event and optionally notify participants."""
+    """Archive event and optionally start broadcast flow."""
     if not config.is_admin_context(callback.message.chat.id, callback.from_user.id):
         return
 
     parts = callback.data.split(":")
     event_id = int(parts[2])
-    notify = parts[3] == "notify"
+    mode = parts[3]  # 'broadcast' or 'silent'
 
     event = Event.get_or_none(
         Event.id == event_id,
@@ -869,32 +874,43 @@ async def handle_endevent_confirm(
 
     stats = get_event_stats(event)
 
-    # Notify participants if requested
-    sent = 0
-    failed = 0
-    if notify:
-        registrations = Registration.select().where(
-            Registration.event == event,
-            Registration.cancelled == False,  # noqa: E712
+    if mode == "broadcast":
+        # Enter broadcast flow with template
+        reg_count = (
+            Registration.select()
+            .where(
+                Registration.event == event,
+                Registration.cancelled == False,  # noqa: E712
+            )
+            .count()
         )
-        notification_msg = config.system_messages.event_ended_notification.format(
+
+        if reg_count == 0:
+            # No registrants - just show archive result
+            result_text = format_endevent_result(event.title, stats, False, 0, 0)
+            await callback.message.edit_text(result_text, parse_mode="Markdown")
+            await callback.answer()
+            return
+
+        # Get template message
+        template = config.system_messages.event_ended_notification.format(
             event_title=event.title
         )
-        for reg in registrations:
-            try:
-                await bot.send_message(reg.user.telegram_id, notification_msg)
-                sent += 1
-            except Exception:
-                failed += 1
 
-    result_text = format_endevent_result(
-        event.title,
-        stats,
-        notify,
-        sent,
-        failed,
-    )
-    await callback.message.edit_text(result_text, parse_mode="Markdown")
+        await state.set_state(EndBroadcastStates.message)
+        await state.update_data(event_id=event.id)
+
+        intro = config.system_messages.end_broadcast_intro.format(
+            event_title=event.title,
+            count=reg_count,
+            template=template,
+        )
+        await callback.message.edit_text(intro, parse_mode="Markdown")
+    else:
+        # Silent mode - just show archive result
+        result_text = format_endevent_result(event.title, stats, False, 0, 0)
+        await callback.message.edit_text(result_text, parse_mode="Markdown")
+
     await callback.answer()
 
 
@@ -905,6 +921,134 @@ async def handle_endevent_cancel(callback: CallbackQuery, config: Config) -> Non
         return
 
     await callback.message.edit_text("❌ End event cancelled.")
+    await callback.answer()
+
+
+# --- End Broadcast Handlers ---
+
+
+@router.message(EndBroadcastStates.message)
+async def process_end_broadcast_message(
+    message: Message, config: Config, state: FSMContext
+) -> None:
+    """Process broadcast message after ending event."""
+    if not config.is_admin_context(message.chat.id, message.from_user.id):
+        return
+
+    data = await state.get_data()
+    event = Event.get_by_id(data["event_id"])
+
+    await state.update_data(broadcast_text=message.text)
+    await state.set_state(EndBroadcastStates.confirm)
+
+    reg_count = (
+        Registration.select()
+        .where(
+            Registration.event == event,
+            Registration.cancelled == False,  # noqa: E712
+        )
+        .count()
+    )
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=f"📤 Send to {reg_count} registrants",
+                    callback_data=f"endbc:send:{event.id}",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="❌ Cancel (already archived)",
+                    callback_data=f"endbc:cancel:{event.id}",
+                ),
+            ],
+        ]
+    )
+
+    await message.answer(
+        f"📢 *Preview:*\n\n{message.text}\n\n_Send to {reg_count} registrants of {event.title}?_",
+        reply_markup=keyboard,
+        parse_mode="Markdown",
+    )
+
+
+@router.callback_query(F.data.startswith("endbc:send:"))
+async def handle_end_broadcast_send(
+    callback: CallbackQuery, config: Config, state: FSMContext, bot: Bot
+) -> None:
+    """Send broadcast after ending event."""
+    if not config.is_admin_context(callback.message.chat.id, callback.from_user.id):
+        return
+
+    event_id = int(callback.data.split(":")[2])
+    data = await state.get_data()
+    broadcast_text = data.get("broadcast_text")
+
+    if not broadcast_text:
+        await callback.answer("No message to send")
+        return
+
+    event = Event.get_or_none(Event.id == event_id)
+    if not event:
+        await callback.answer("Event not found")
+        await state.clear()
+        return
+
+    registrations = Registration.select().where(
+        Registration.event == event,
+        Registration.cancelled == False,  # noqa: E712
+    )
+
+    sent = 0
+    failed = 0
+
+    for reg in registrations:
+        try:
+            await bot.send_message(reg.user.telegram_id, broadcast_text)
+            sent += 1
+        except Exception:
+            failed += 1
+
+    # Save broadcast record
+    Broadcast.create(
+        event=event,
+        message_text=broadcast_text,
+        target_audience="all",
+        include_buttons=False,
+        sent_count=sent,
+        failed_count=failed,
+    )
+
+    await state.clear()
+
+    stats = get_event_stats(event)
+    result_text = format_endevent_result(event.title, stats, True, sent, failed)
+    await callback.message.edit_text(result_text, parse_mode="Markdown")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("endbc:cancel:"))
+async def handle_end_broadcast_cancel(
+    callback: CallbackQuery, config: Config, state: FSMContext
+) -> None:
+    """Cancel broadcast after ending event (event stays archived)."""
+    if not config.is_admin_context(callback.message.chat.id, callback.from_user.id):
+        return
+
+    event_id = int(callback.data.split(":")[2])
+    event = Event.get_or_none(Event.id == event_id)
+
+    await state.clear()
+
+    if event:
+        stats = get_event_stats(event)
+        result_text = format_endevent_result(event.title, stats, False, 0, 0)
+        await callback.message.edit_text(result_text, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text("❌ Broadcast cancelled. Event archived.")
+
     await callback.answer()
 
 

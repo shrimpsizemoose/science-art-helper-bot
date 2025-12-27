@@ -50,6 +50,7 @@ visualization_success = "Visualization generated! {url}"
 visualization_local_success = "Visualization saved: {path}"
 visualization_generating = "Generating..."
 visualization_no_events = "No events to visualize"
+end_broadcast_intro = "Broadcast to {event_title}. Recipients: {count}. Template: {template}"
 
 [default_event_messages]
 registration_success = "Registered for {event_title}!"

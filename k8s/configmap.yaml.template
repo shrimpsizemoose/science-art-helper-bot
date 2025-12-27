@@ -36,6 +36,7 @@ data:
     visualization_local_success = "📊 Visualization saved locally:\n`{path}`"
     visualization_generating = "Generating visualization..."
     visualization_no_events = "No events found to visualize."
+    end_broadcast_intro = "📢 *Broadcast to {event_title}*\n\nRecipients: {count} registrants\n\nSuggested message:\n`{template}`\n\nType your message (or copy/edit the template):"
 
     [default_event_messages]
     registration_success = "You're registered for {event_title}! We'll send you reminders before the event."

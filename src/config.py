@@ -29,6 +29,7 @@ class SystemMessages:
     visualization_local_success: str
     visualization_generating: str
     visualization_no_events: str
+    end_broadcast_intro: str
 
 
 @dataclass
@@ -101,6 +102,7 @@ class Config:
                 visualization_local_success=sys_msg_data["visualization_local_success"],
                 visualization_generating=sys_msg_data["visualization_generating"],
                 visualization_no_events=sys_msg_data["visualization_no_events"],
+                end_broadcast_intro=sys_msg_data["end_broadcast_intro"],
             ),
             default_event_messages=DefaultEventMessages(
                 registration_success=event_msg_data["registration_success"],

@@ -71,6 +71,9 @@ visualization_generating = "Generating visualization..."
 # Shown when no events exist to visualize
 visualization_no_events = "No events found to visualize."
 
+# Intro for broadcast after ending event (supports {event_title}, {count}, {template})
+end_broadcast_intro = "✅ *Event \"{event_title}\" archived!*\n\n{count} registrants. Example message:\n\n`{template}`\n\nType your message (or copy the template above):"
+
 [default_event_messages]
 # Shown after successful registration. Supports {event_title}, {user_name}
 registration_success = "You're registered for {event_title}! We'll send you reminders before the event."
