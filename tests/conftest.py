@@ -45,6 +45,11 @@ history_broadcast_intro = "Broadcast to {event_title}. Recipients: {count}"
 broadcasts_command_description = "View broadcast history"
 no_broadcasts = "No broadcasts have been sent yet."
 broadcast_history_header = "Broadcast History for {event_title}"
+visualize_command_description = "Generate event visualization"
+visualization_success = "Visualization generated! {url}"
+visualization_local_success = "Visualization saved: {path}"
+visualization_generating = "Generating..."
+visualization_no_events = "No events to visualize"
 
 [default_event_messages]
 registration_success = "Registered for {event_title}!"

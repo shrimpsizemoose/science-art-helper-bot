@@ -24,6 +24,11 @@ class SystemMessages:
     broadcasts_command_description: str
     no_broadcasts: str
     broadcast_history_header: str
+    visualize_command_description: str
+    visualization_success: str
+    visualization_local_success: str
+    visualization_generating: str
+    visualization_no_events: str
 
 
 @dataclass
@@ -91,6 +96,11 @@ class Config:
                 broadcasts_command_description=sys_msg_data["broadcasts_command_description"],
                 no_broadcasts=sys_msg_data["no_broadcasts"],
                 broadcast_history_header=sys_msg_data["broadcast_history_header"],
+                visualize_command_description=sys_msg_data["visualize_command_description"],
+                visualization_success=sys_msg_data["visualization_success"],
+                visualization_local_success=sys_msg_data["visualization_local_success"],
+                visualization_generating=sys_msg_data["visualization_generating"],
+                visualization_no_events=sys_msg_data["visualization_no_events"],
             ),
             default_event_messages=DefaultEventMessages(
                 registration_success=event_msg_data["registration_success"],

@@ -56,6 +56,21 @@ no_broadcasts = "No broadcasts have been sent yet."
 # Header for broadcast history view (supports {event_title})
 broadcast_history_header = "📢 *Broadcast History for {event_title}*\n\n"
 
+# Description for /visualize command in bot menu
+visualize_command_description = "Generate event visualization"
+
+# Shown when visualization is generated successfully (supports {url})
+visualization_success = "📊 Visualization generated!\n\n{url}"
+
+# Shown when visualization is saved locally (supports {path})
+visualization_local_success = "📊 Visualization saved locally:\n`{path}`"
+
+# Shown during visualization generation
+visualization_generating = "Generating visualization..."
+
+# Shown when no events exist to visualize
+visualization_no_events = "No events found to visualize."
+
 [default_event_messages]
 # Shown after successful registration. Supports {event_title}, {user_name}
 registration_success = "You're registered for {event_title}! We'll send you reminders before the event."

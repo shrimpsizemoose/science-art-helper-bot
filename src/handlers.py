@@ -24,6 +24,7 @@ from src.formatting import (
     format_stats_message,
 )
 from src.models import Broadcast, Event, Registration, User, utcnow
+from src.visualization import generate_and_upload_visualization
 
 router = Router()
 
@@ -1567,10 +1568,80 @@ async def handle_broadcasts_back(callback: CallbackQuery, config: Config) -> Non
     await callback.answer()
 
 
+# --- Visualization Handlers ---
+
+
+@router.message(Command("visualize"))
+async def cmd_visualize(message: Message, config: Config) -> None:
+    if not config.is_admin_context(message.chat.id, message.from_user.id):
+        return
+
+    active_event = Event.get_active()
+    archived_events = list(
+        Event.select()
+        .where(Event.is_active == False)  # noqa: E712
+        .order_by(Event.archived_at.desc())
+        .limit(10)
+    )
+
+    if not active_event and not archived_events:
+        await message.answer(config.system_messages.visualization_no_events)
+        return
+
+    buttons = []
+    if active_event:
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"📌 {active_event.title} (Active)",
+                callback_data=f"visualize:event:{active_event.id}",
+            )
+        ])
+
+    for i, event in enumerate(archived_events, 1):
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"{i}. {event.title}",
+                callback_data=f"visualize:event:{event.id}",
+            )
+        ])
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await message.answer(
+        "📊 *Generate Visualization*\n\nSelect an event:",
+        parse_mode="Markdown",
+        reply_markup=keyboard,
+    )
+
+
+@router.callback_query(F.data.startswith("visualize:event:"))
+async def handle_visualize_event(callback: CallbackQuery, config: Config) -> None:
+    if not config.is_admin_context(callback.message.chat.id, callback.from_user.id):
+        return
+
+    event_id = int(callback.data.split(":")[2])
+    event = Event.get_or_none(Event.id == event_id)
+    if not event:
+        await callback.answer("Event not found")
+        return
+
+    await callback.message.edit_text(config.system_messages.visualization_generating)
+
+    try:
+        result, is_remote = generate_and_upload_visualization(event)
+        if is_remote:
+            msg = config.system_messages.visualization_success.format(url=result)
+        else:
+            msg = config.system_messages.visualization_local_success.format(path=result)
+        await callback.message.edit_text(msg, parse_mode="Markdown")
+    except Exception as e:
+        await callback.message.edit_text(f"❌ Error generating visualization: {e}")
+
+    await callback.answer()
+
+
 # --- Fallback Handler ---
 
 
 @router.message()
 async def handle_unknown_message(message: Message, config: Config) -> None:
-    """Handle any unrecognized message."""
     await message.answer(config.system_messages.unknown_message)
