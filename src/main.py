@@ -84,6 +84,10 @@ async def main() -> None:
             command="visualize",
             description=config.system_messages.visualize_command_description,
         ),
+        BotCommand(
+            command="version",
+            description=config.system_messages.version_command_description,
+        ),
     ]
 
     # Set admin commands for each admin user

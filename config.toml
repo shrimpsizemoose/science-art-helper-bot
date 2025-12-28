@@ -59,6 +59,9 @@ broadcast_history_header = "📢 *Broadcast History for {event_title}*\n\n"
 # Description for /visualize command in bot menu
 visualize_command_description = "Generate event visualization"
 
+# Description for /version command in bot menu
+version_command_description = "Show bot version"
+
 # Shown when visualization is generated successfully (supports {url})
 visualization_success = "📊 Visualization generated!\n\n{url}"
 

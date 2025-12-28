@@ -32,6 +32,7 @@ data:
     no_broadcasts = "No broadcasts have been sent yet."
     broadcast_history_header = "📢 *Broadcast History for {event_title}*\n\n"
     visualize_command_description = "Generate event visualization"
+    version_command_description = "Show bot version"
     visualization_success = "📊 Visualization generated!\n\n{url}"
     visualization_local_success = "📊 Visualization saved locally:\n`{path}`"
     visualization_generating = "Generating visualization..."

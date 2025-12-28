@@ -1,5 +1,6 @@
 import csv
 import io
+import os
 import re
 
 from aiogram import Bot, F, Router
@@ -1216,6 +1217,16 @@ async def send_broadcast(
         parse_mode="Markdown",
     )
     await callback.answer()
+
+
+@router.message(Command("version"))
+async def cmd_version(message: Message, config: Config) -> None:
+    """Show bot version."""
+    if not config.is_admin_context(message.chat.id, message.from_user.id):
+        return
+
+    version = os.environ.get("BOT_VERSION", "dev")
+    await message.answer(f"🤖 Bot version: `{version}`", parse_mode="Markdown")
 
 
 @router.message(Command("stats"))

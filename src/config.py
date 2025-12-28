@@ -30,6 +30,7 @@ class SystemMessages:
     visualization_generating: str
     visualization_no_events: str
     end_broadcast_intro: str
+    version_command_description: str
 
 
 @dataclass
@@ -103,6 +104,7 @@ class Config:
                 visualization_generating=sys_msg_data["visualization_generating"],
                 visualization_no_events=sys_msg_data["visualization_no_events"],
                 end_broadcast_intro=sys_msg_data["end_broadcast_intro"],
+                version_command_description=sys_msg_data["version_command_description"],
             ),
             default_event_messages=DefaultEventMessages(
                 registration_success=event_msg_data["registration_success"],

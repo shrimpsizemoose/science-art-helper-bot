@@ -17,6 +17,9 @@ COPY src/ ./src/
 
 FROM python:3.13-slim
 
+ARG BUILD_VERSION=dev
+ENV BOT_VERSION=${BUILD_VERSION}
+
 # Create non-root user
 RUN useradd --uid 10001 --no-create-home --shell /bin/false appuser
 
