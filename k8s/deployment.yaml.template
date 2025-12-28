@@ -32,6 +32,43 @@ spec:
                   key: DATABASE_URL
             - name: CONFIG_PATH
               value: "/app/config/config.toml"
+            # R2 configuration (optional - visualization falls back to local storage)
+            - name: R2_ENDPOINT_URL
+              valueFrom:
+                secretKeyRef:
+                  name: workshop-bot-secrets
+                  key: R2_ENDPOINT_URL
+                  optional: true
+            - name: R2_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: workshop-bot-secrets
+                  key: R2_ACCESS_KEY_ID
+                  optional: true
+            - name: R2_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: workshop-bot-secrets
+                  key: R2_SECRET_ACCESS_KEY
+                  optional: true
+            - name: R2_BUCKET_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: workshop-bot-secrets
+                  key: R2_BUCKET_NAME
+                  optional: true
+            - name: R2_PUBLIC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: workshop-bot-secrets
+                  key: R2_PUBLIC_URL
+                  optional: true
+            - name: R2_UPLOAD_PREFIX
+              valueFrom:
+                secretKeyRef:
+                  name: workshop-bot-secrets
+                  key: R2_UPLOAD_PREFIX
+                  optional: true
           volumeMounts:
             - name: config
               mountPath: /app/config

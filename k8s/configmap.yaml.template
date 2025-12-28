@@ -16,11 +16,14 @@ data:
     event_not_available = "This event is no longer accepting registrations."
     event_already_ended = "This event has already ended."
     event_ended_notification = "{event_title} has concluded. Thank you for being part of it!"
+
     register_button_text = "Register"
     question_intro = "Before we register you, a quick question:"
     skip_question_button_text = "Skip"
+
     unknown_message = "Use /start to see current events and register."
     start_command_description = "Register for events"
+
     newevent_command_description = "Create a new event"
     endevent_command_description = "End current event"
     broadcast_command_description = "Send message to registrants"
