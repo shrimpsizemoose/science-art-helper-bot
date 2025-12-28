@@ -136,7 +136,17 @@ class TestFormatEndeventResult:
         result = format_endevent_result("Event", stats, notify=True, sent=6, failed=2)
 
         assert "📤 Notifications sent: 6" in result
-        assert "(failed: 2)" in result
+        assert "❌ Failed: 2" in result
+
+    def test_with_failure_details(self):
+        stats = {"registered": 10, "confirmed": 8, "cancelled": 2}
+        result = format_endevent_result(
+            "Event", stats, notify=True, sent=6, failed=3,
+            failure_details=" (2 blocked, 1 deactivated)"
+        )
+
+        assert "📤 Notifications sent: 6" in result
+        assert "❌ Failed: 3 (2 blocked, 1 deactivated)" in result
 
 
 class TestFormatHistoryList:
@@ -165,12 +175,14 @@ class TestFormatHistoryList:
 
         assert "*1. Event A*" in text
         assert "*2. Event B*" in text
+        assert "(ID: 1)" in text
+        assert "(ID: 2)" in text
         assert len(export_buttons) == 2
-        assert export_buttons[0].text == "📤 #1"
-        assert export_buttons[1].text == "📤 #2"
+        assert export_buttons[0].text == "Export #1 (1)"
+        assert export_buttons[1].text == "Export #2 (2)"
         assert len(broadcast_buttons) == 2
-        assert broadcast_buttons[0].text == "📢 #1"
-        assert broadcast_buttons[1].text == "📢 #2"
+        assert broadcast_buttons[0].text == "Broadcast #1 (1)"
+        assert broadcast_buttons[1].text == "Broadcast #2 (2)"
 
 
 class TestFormatEventCreated:

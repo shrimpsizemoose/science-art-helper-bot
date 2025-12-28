@@ -54,8 +54,8 @@ async def main() -> None:
     ]
     await bot.set_my_commands(user_commands, scope=BotCommandScopeDefault())
 
-    # Admin commands list
-    admin_commands = user_commands + [
+    admin_commands = [
+        *user_commands,
         BotCommand(
             command="newevent",
             description=config.system_messages.newevent_command_description,
@@ -90,14 +90,12 @@ async def main() -> None:
         ),
     ]
 
-    # Set admin commands for each admin user
     for admin_id in config.admin_ids:
         await bot.set_my_commands(
             admin_commands, scope=BotCommandScopeChat(chat_id=admin_id)
         )
         logger.info(f"Set admin commands for user {admin_id}")
 
-    # Set admin commands for admin group if configured
     if config.admin_group_id:
         await bot.set_my_commands(
             admin_commands, scope=BotCommandScopeChat(chat_id=config.admin_group_id)

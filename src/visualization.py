@@ -1,11 +1,10 @@
 import tempfile
 from collections import defaultdict
-from datetime import datetime, timezone
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-from src.models import Broadcast, Event, Registration
+from src.models import Broadcast, Event, Registration, utcnow
 from src.r2_upload import is_r2_configured, upload_to_r2
 
 
@@ -15,9 +14,7 @@ def get_template_env() -> Environment:
 
 
 def collect_event_data(event: Event) -> dict:
-    registrations = list(
-        Registration.select().where(Registration.event == event)
-    )
+    registrations = list(Registration.select().where(Registration.event == event))
 
     confirmed_count = sum(1 for r in registrations if r.confirmed and not r.cancelled)
     cancelled_count = sum(1 for r in registrations if r.cancelled)
@@ -32,7 +29,9 @@ def collect_event_data(event: Event) -> dict:
     total_sent = sum(b.sent_count for b in broadcasts)
     total_failed = sum(b.failed_count for b in broadcasts)
     total_messages = total_sent + total_failed
-    delivery_rate = round((total_sent / total_messages * 100) if total_messages > 0 else 0, 1)
+    delivery_rate = round(
+        (total_sent / total_messages * 100) if total_messages > 0 else 0, 1
+    )
 
     timeline = build_registration_timeline(registrations)
 
@@ -50,7 +49,7 @@ def collect_event_data(event: Event) -> dict:
         },
         "broadcasts": broadcasts,
         "registration_timeline": timeline,
-        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+        "generated_at": utcnow().strftime("%Y-%m-%d %H:%M UTC"),
     }
 
 
@@ -86,7 +85,7 @@ def generate_visualization_html(event: Event) -> str:
 
 def save_visualization_local(html: str, event: Event) -> Path:
     tmp_dir = Path(tempfile.gettempdir())
-    filename = f"event_{event.code}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.html"
+    filename = f"event_{event.code}_{utcnow().strftime('%Y%m%d_%H%M%S')}.html"
     filepath = tmp_dir / filename
     filepath.write_text(html, encoding="utf-8")
     return filepath
@@ -97,7 +96,7 @@ def generate_and_upload_visualization(event: Event) -> tuple[str, bool]:
     html = generate_visualization_html(event)
 
     if is_r2_configured():
-        filename = f"event_{event.code}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.html"
+        filename = f"event_{event.code}_{utcnow().strftime('%Y%m%d_%H%M%S')}.html"
         url = upload_to_r2(html.encode("utf-8"), filename)
         return url, True
 

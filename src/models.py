@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from urllib.parse import urlparse
 
 from peewee import (
@@ -17,7 +17,7 @@ from peewee import (
 
 
 def utcnow():
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 # Deferred database - will be initialized at runtime

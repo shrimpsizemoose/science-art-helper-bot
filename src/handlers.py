@@ -3,7 +3,10 @@ import io
 import os
 import re
 
+from collections import Counter
+
 from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramForbiddenError, TelegramNotFound, TelegramRetryAfter
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -140,6 +143,98 @@ def generate_event_csv(event: Event) -> io.StringIO:
 
     output.seek(0)
     return output
+
+
+async def send_broadcast_messages(
+    bot: Bot,
+    registrations,
+    text: str,
+    keyboard: InlineKeyboardMarkup | None = None,
+    delay: float = 0.05,
+    progress_callback=None,
+    progress_interval: int = 5,
+) -> tuple[int, int, Counter]:
+    """Send broadcast messages and return (sent, failed, failure_reasons).
+
+    Args:
+        bot: The bot instance
+        registrations: List of registrations to send to
+        text: Message text
+        keyboard: Optional inline keyboard
+        delay: Delay between messages in seconds (default 0.05s = ~20 msg/sec)
+        progress_callback: Optional async callback(sent, failed, total) for progress updates
+        progress_interval: How often to call progress_callback (every N messages)
+
+    failure_reasons is a Counter with keys like 'blocked', 'deactivated', 'not_found', 'other'.
+    """
+    import asyncio
+
+    sent = 0
+    failed = 0
+    failure_reasons: Counter = Counter()
+    total = len(registrations)
+    last_progress = 0
+
+    for i, reg in enumerate(registrations):
+        try:
+            await bot.send_message(
+                reg.user.telegram_id,
+                text,
+                reply_markup=keyboard,
+            )
+            sent += 1
+        except TelegramForbiddenError as e:
+            failed += 1
+            msg = str(e).lower()
+            if "blocked" in msg:
+                failure_reasons["blocked"] += 1
+            elif "deactivated" in msg:
+                failure_reasons["deactivated"] += 1
+            elif "kicked" in msg:
+                failure_reasons["kicked"] += 1
+            else:
+                failure_reasons["forbidden"] += 1
+        except TelegramNotFound:
+            failed += 1
+            failure_reasons["not_found"] += 1
+        except TelegramRetryAfter as e:
+            failed += 1
+            failure_reasons[f"rate_limited ({e.retry_after}s)"] += 1
+        except Exception:
+            failed += 1
+            failure_reasons["other"] += 1
+
+        # Progress update
+        processed = i + 1
+        if progress_callback and (processed - last_progress) >= progress_interval:
+            try:
+                await progress_callback(sent, failed, total, processed)
+                last_progress = processed
+            except Exception:
+                pass  # Don't let progress update failures stop the broadcast
+
+        # Pace sending to avoid rate limits
+        if delay > 0:
+            await asyncio.sleep(delay)
+
+    return sent, failed, failure_reasons
+
+
+def format_failure_reasons(failure_reasons: Counter) -> str:
+    """Format failure reasons for display."""
+    if not failure_reasons:
+        return ""
+    parts = [f"{count} {reason}" for reason, count in failure_reasons.most_common()]
+    return f" ({', '.join(parts)})"
+
+
+def format_broadcast_progress(sent: int, failed: int, total: int, processed: int) -> str:
+    """Format broadcast progress message."""
+    pct = int(processed / total * 100) if total > 0 else 0
+    bar_filled = pct // 10
+    bar_empty = 10 - bar_filled
+    bar = "▓" * bar_filled + "░" * bar_empty
+    return f"📤 *Sending...*\n\n{bar} {pct}%\n{processed}/{total} processed"
 
 
 def get_event_stats(event: Event) -> dict:
@@ -997,20 +1092,29 @@ async def handle_end_broadcast_send(
         await state.clear()
         return
 
-    registrations = Registration.select().where(
+    registrations = list(Registration.select().where(
         Registration.event == event,
         Registration.cancelled == False,  # noqa: E712
+    ))
+
+    # Show initial progress
+    total = len(registrations)
+    await callback.message.edit_text(
+        format_broadcast_progress(0, 0, total, 0),
+        parse_mode="Markdown",
     )
 
-    sent = 0
-    failed = 0
+    # Progress callback
+    async def on_progress(sent: int, failed: int, total: int, processed: int) -> None:
+        await callback.message.edit_text(
+            format_broadcast_progress(sent, failed, total, processed),
+            parse_mode="Markdown",
+        )
 
-    for reg in registrations:
-        try:
-            await bot.send_message(reg.user.telegram_id, broadcast_text)
-            sent += 1
-        except Exception:
-            failed += 1
+    sent, failed, failure_reasons = await send_broadcast_messages(
+        bot, registrations, broadcast_text,
+        progress_callback=on_progress,
+    )
 
     # Save broadcast record
     Broadcast.create(
@@ -1025,7 +1129,9 @@ async def handle_end_broadcast_send(
     await state.clear()
 
     stats = get_event_stats(event)
-    result_text = format_endevent_result(event.title, stats, True, sent, failed)
+    result_text = format_endevent_result(
+        event.title, stats, True, sent, failed, format_failure_reasons(failure_reasons)
+    )
     await callback.message.edit_text(result_text, parse_mode="Markdown")
     await callback.answer()
 
@@ -1164,7 +1270,7 @@ async def send_broadcast(
     if target == "non_responders":
         query = query.where(Registration.confirmed == False)  # noqa: E712
 
-    registrations = query
+    registrations = list(query)
 
     keyboard = None
     if include_buttons:
@@ -1188,19 +1294,24 @@ async def send_broadcast(
             event.confirmation_sent_at = utcnow()
             event.save()
 
-    sent = 0
-    failed = 0
+    # Show initial progress
+    total = len(registrations)
+    await callback.message.edit_text(
+        format_broadcast_progress(0, 0, total, 0),
+        parse_mode="Markdown",
+    )
 
-    for reg in registrations:
-        try:
-            await bot.send_message(
-                reg.user.telegram_id,
-                broadcast_text,
-                reply_markup=keyboard,
-            )
-            sent += 1
-        except Exception:
-            failed += 1
+    # Progress callback to update the message
+    async def on_progress(sent: int, failed: int, total: int, processed: int) -> None:
+        await callback.message.edit_text(
+            format_broadcast_progress(sent, failed, total, processed),
+            parse_mode="Markdown",
+        )
+
+    sent, failed, failure_reasons = await send_broadcast_messages(
+        bot, registrations, broadcast_text, keyboard,
+        progress_callback=on_progress,
+    )
 
     # Save broadcast record
     Broadcast.create(
@@ -1212,8 +1323,9 @@ async def send_broadcast(
         failed_count=failed,
     )
 
+    failure_text = format_failure_reasons(failure_reasons)
     await callback.message.edit_text(
-        f"✅ *Broadcast sent!*\n\n📤 Sent: {sent}\n❌ Failed: {failed}",
+        f"✅ *Broadcast sent!*\n\n📤 Sent: {sent}\n❌ Failed: {failed}{failure_text}",
         parse_mode="Markdown",
     )
     await callback.answer()
@@ -1364,20 +1476,29 @@ async def handle_history_broadcast_send(
         await state.clear()
         return
 
-    registrations = Registration.select().where(
+    registrations = list(Registration.select().where(
         Registration.event == event,
         Registration.cancelled == False,  # noqa: E712
+    ))
+
+    # Show initial progress
+    total = len(registrations)
+    await callback.message.edit_text(
+        format_broadcast_progress(0, 0, total, 0),
+        parse_mode="Markdown",
     )
 
-    sent = 0
-    failed = 0
+    # Progress callback
+    async def on_progress(sent: int, failed: int, total: int, processed: int) -> None:
+        await callback.message.edit_text(
+            format_broadcast_progress(sent, failed, total, processed),
+            parse_mode="Markdown",
+        )
 
-    for reg in registrations:
-        try:
-            await bot.send_message(reg.user.telegram_id, broadcast_text)
-            sent += 1
-        except Exception:
-            failed += 1
+    sent, failed, failure_reasons = await send_broadcast_messages(
+        bot, registrations, broadcast_text,
+        progress_callback=on_progress,
+    )
 
     # Save broadcast record (history broadcasts don't include buttons)
     Broadcast.create(
@@ -1390,8 +1511,9 @@ async def handle_history_broadcast_send(
     )
 
     await state.clear()
+    failure_text = format_failure_reasons(failure_reasons)
     await callback.message.edit_text(
-        f"✅ *Broadcast sent to {event.title}!*\n\n📤 Sent: {sent}\n❌ Failed: {failed}",
+        f"✅ *Broadcast sent to {event.title}!*\n\n📤 Sent: {sent}\n❌ Failed: {failed}{failure_text}",
         parse_mode="Markdown",
     )
     await callback.answer()

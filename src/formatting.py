@@ -84,6 +84,7 @@ def format_endevent_result(
     notify: bool,
     sent: int = 0,
     failed: int = 0,
+    failure_details: str = "",
 ) -> str:
     text = "\n\n".join([
         f'✅ *Event "{event_title}" archived.*',
@@ -98,7 +99,7 @@ def format_endevent_result(
     if notify:
         text += f"\n\n📤 Notifications sent: {sent}"
         if failed:
-            text += f" (failed: {failed})"
+            text += f"\n❌ Failed: {failed}{failure_details}"
 
     text += "\n\nUse /history to view past events."
     return text
@@ -121,17 +122,17 @@ def format_history_list(
 
     for i, (event_id, title, archived_date, stats) in enumerate(events, 1):
         text += (
-            f"\n*{i}. {title}* ({archived_date})\n"
-            f"   Registered: {stats['registered']} | Confirmed: {stats['confirmed']}\n"
+            f"\n*{i}. {title}* (ID: {event_id})\n"
+            f"   {archived_date} | Registered: {stats['registered']} | Confirmed: {stats['confirmed']}\n"
         )
         export_buttons.append(
             InlineKeyboardButton(
-                text=f"📤 #{i}", callback_data=f"history:export:{event_id}"
+                text=f"Export #{i} ({event_id})", callback_data=f"history:export:{event_id}"
             )
         )
         broadcast_buttons.append(
             InlineKeyboardButton(
-                text=f"📢 #{i}", callback_data=f"history:broadcast:{event_id}"
+                text=f"Broadcast #{i} ({event_id})", callback_data=f"history:broadcast:{event_id}"
             )
         )
 
