@@ -19,6 +19,7 @@ from aiogram.types import (
 )
 
 from src.config import Config
+from src.db_export import generate_sqlite_export
 from src.formatting import (
     build_broadcast_buttons,
     format_endevent_result,
@@ -1339,6 +1340,37 @@ async def cmd_version(message: Message, config: Config) -> None:
 
     version = os.environ.get("BOT_VERSION", "dev")
     await message.answer(f"🤖 Bot version: `{version}`", parse_mode="Markdown")
+
+
+@router.message(Command("dbexport"))
+async def cmd_dbexport(message: Message, config: Config) -> None:
+    """Export entire database as SQLite file."""
+    if not config.is_admin_context(message.chat.id, message.from_user.id):
+        return
+
+    await message.answer(config.system_messages.dbexport_generating)
+
+    try:
+        export_path, stats = generate_sqlite_export()
+
+        file = BufferedInputFile(
+            export_path.read_bytes(),
+            filename="workshop_bot_export.db",
+        )
+        await message.answer_document(
+            file,
+            caption=config.system_messages.dbexport_success.format(
+                tables=stats["tables"],
+                rows=stats["rows"],
+            ),
+        )
+
+        # Cleanup temp file
+        export_path.unlink(missing_ok=True)
+    except Exception as e:
+        await message.answer(
+            config.system_messages.dbexport_error.format(error=str(e))
+        )
 
 
 @router.message(Command("stats"))

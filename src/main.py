@@ -88,6 +88,10 @@ async def main() -> None:
             command="version",
             description=config.system_messages.version_command_description,
         ),
+        BotCommand(
+            command="dbexport",
+            description=config.system_messages.dbexport_command_description,
+        ),
     ]
 
     for admin_id in config.admin_ids:

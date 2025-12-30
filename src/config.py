@@ -31,6 +31,10 @@ class SystemMessages:
     visualization_no_events: str
     end_broadcast_intro: str
     version_command_description: str
+    dbexport_command_description: str
+    dbexport_generating: str
+    dbexport_success: str
+    dbexport_error: str
 
 
 @dataclass
@@ -105,6 +109,10 @@ class Config:
                 visualization_no_events=sys_msg_data["visualization_no_events"],
                 end_broadcast_intro=sys_msg_data["end_broadcast_intro"],
                 version_command_description=sys_msg_data["version_command_description"],
+                dbexport_command_description=sys_msg_data["dbexport_command_description"],
+                dbexport_generating=sys_msg_data["dbexport_generating"],
+                dbexport_success=sys_msg_data["dbexport_success"],
+                dbexport_error=sys_msg_data["dbexport_error"],
             ),
             default_event_messages=DefaultEventMessages(
                 registration_success=event_msg_data["registration_success"],

@@ -65,6 +65,10 @@ visualization_local_success = "Saved {path}"
 visualization_generating = "Generating..."
 visualization_no_events = "No events"
 end_broadcast_intro = "Broadcast to {event_title}. Recipients: {count}. Template: {template}"
+dbexport_command_description = "Export database"
+dbexport_generating = "Generating..."
+dbexport_success = "Done! Tables: {tables}, Rows: {rows}"
+dbexport_error = "Error: {error}"
 
 [default_event_messages]
 registration_success = "Done"

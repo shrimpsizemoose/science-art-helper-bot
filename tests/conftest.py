@@ -52,6 +52,10 @@ visualization_local_success = "Visualization saved: {path}"
 visualization_generating = "Generating..."
 visualization_no_events = "No events to visualize"
 end_broadcast_intro = "Broadcast to {event_title}. Recipients: {count}. Template: {template}"
+dbexport_command_description = "Export database as SQLite"
+dbexport_generating = "Generating SQLite export..."
+dbexport_success = "Database exported! Tables: {tables}, Rows: {rows}"
+dbexport_error = "Failed to export: {error}"
 
 [default_event_messages]
 registration_success = "Registered for {event_title}!"
