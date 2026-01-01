@@ -4,53 +4,73 @@ from pathlib import Path
 
 
 @dataclass
-class SystemMessages:
+class CommandDescriptions:
+    start: str
+    newevent: str
+    endevent: str
+    broadcast: str
+    stats: str
+    export: str
+    history: str
+    broadcasts: str
+    visualize: str
+    version: str
+    dbexport: str
+
+
+@dataclass
+class RegistrationMessages:
     no_active_event: str
     event_not_available: str
     event_already_ended: str
     event_ended_notification: str
-    register_button_text: str
     question_intro: str
-    skip_question_button_text: str
     unknown_message: str
-    start_command_description: str
-    newevent_command_description: str
-    endevent_command_description: str
-    broadcast_command_description: str
-    stats_command_description: str
-    export_command_description: str
-    history_command_description: str
-    history_broadcast_intro: str
-    broadcasts_command_description: str
-    no_broadcasts: str
-    broadcast_history_header: str
-    visualize_command_description: str
-    visualization_success: str
-    visualization_local_success: str
-    visualization_generating: str
-    visualization_no_events: str
-    end_broadcast_intro: str
-    version_command_description: str
-    dbexport_command_description: str
-    dbexport_generating: str
-    dbexport_success: str
-    dbexport_error: str
+    register_button: str
+    skip_button: str
 
 
 @dataclass
-class DefaultEventMessages:
+class BroadcastMessages:
+    history_intro: str
+    no_history: str
+    history_header: str
+    end_event_intro: str
+
+
+@dataclass
+class VisualizationMessages:
+    generating: str
+    success: str
+    local_success: str
+    no_events: str
+
+
+@dataclass
+class DbexportMessages:
+    generating: str
+    success: str
+    error: str
+
+
+@dataclass
+class EventDefaults:
     registration_success: str
     already_registered: str
-    confirm_button_text: str
-    confirm_confirmation: str
-    cancel_button_text: str
-    cancel_confirmation: str
+    confirm_button: str
+    confirm_message: str
+    cancel_button: str
+    cancel_message: str
 
 
 @dataclass
 class Config:
-    system_messages: SystemMessages
-    default_event_messages: DefaultEventMessages
+    commands: CommandDescriptions
+    registration: RegistrationMessages
+    broadcast: BroadcastMessages
+    visualization: VisualizationMessages
+    dbexport: DbexportMessages
+    event_defaults: EventDefaults
     admin_ids: list[int] = field(default_factory=list)
     admin_group_id: int | None = None
 
@@ -58,7 +78,7 @@ class Config:
         return user_id in self.admin_ids
 
     def is_admin_context(self, chat_id: int, user_id: int) -> bool:
-        """Check valid admin context (right chat + user is admin)."""  # noqa: DOC201
+        """Check valid admin context (right chat + user is admin)."""
         if not self.is_admin(user_id):
             return False
         # If admin_group_id is set, only that group works
@@ -75,51 +95,63 @@ class Config:
         with path.open("rb") as f:
             data = tomllib.load(f)
 
-        bot_data = data["bot"]
-        sys_msg_data = data["system_messages"]
-        event_msg_data = data["default_event_messages"]
+        bot = data["bot"]
+        cmd = data["commands"]
+        reg = data["registration"]
+        bc = data["broadcast"]
+        vis = data["visualization"]
+        dbx = data["dbexport"]
+        evt = data["event_defaults"]
 
         return cls(
-            admin_ids=bot_data["admin_ids"],
-            admin_group_id=bot_data.get("admin_group_id"),  # Optional
-            system_messages=SystemMessages(
-                no_active_event=sys_msg_data["no_active_event"],
-                event_not_available=sys_msg_data["event_not_available"],
-                event_already_ended=sys_msg_data["event_already_ended"],
-                event_ended_notification=sys_msg_data["event_ended_notification"],
-                register_button_text=sys_msg_data["register_button_text"],
-                question_intro=sys_msg_data["question_intro"],
-                skip_question_button_text=sys_msg_data["skip_question_button_text"],
-                unknown_message=sys_msg_data["unknown_message"],
-                start_command_description=sys_msg_data["start_command_description"],
-                newevent_command_description=sys_msg_data["newevent_command_description"],
-                endevent_command_description=sys_msg_data["endevent_command_description"],
-                broadcast_command_description=sys_msg_data["broadcast_command_description"],
-                stats_command_description=sys_msg_data["stats_command_description"],
-                export_command_description=sys_msg_data["export_command_description"],
-                history_command_description=sys_msg_data["history_command_description"],
-                history_broadcast_intro=sys_msg_data["history_broadcast_intro"],
-                broadcasts_command_description=sys_msg_data["broadcasts_command_description"],
-                no_broadcasts=sys_msg_data["no_broadcasts"],
-                broadcast_history_header=sys_msg_data["broadcast_history_header"],
-                visualize_command_description=sys_msg_data["visualize_command_description"],
-                visualization_success=sys_msg_data["visualization_success"],
-                visualization_local_success=sys_msg_data["visualization_local_success"],
-                visualization_generating=sys_msg_data["visualization_generating"],
-                visualization_no_events=sys_msg_data["visualization_no_events"],
-                end_broadcast_intro=sys_msg_data["end_broadcast_intro"],
-                version_command_description=sys_msg_data["version_command_description"],
-                dbexport_command_description=sys_msg_data["dbexport_command_description"],
-                dbexport_generating=sys_msg_data["dbexport_generating"],
-                dbexport_success=sys_msg_data["dbexport_success"],
-                dbexport_error=sys_msg_data["dbexport_error"],
+            admin_ids=bot["admin_ids"],
+            admin_group_id=bot.get("admin_group_id"),
+            commands=CommandDescriptions(
+                start=cmd["start"],
+                newevent=cmd["newevent"],
+                endevent=cmd["endevent"],
+                broadcast=cmd["broadcast"],
+                stats=cmd["stats"],
+                export=cmd["export"],
+                history=cmd["history"],
+                broadcasts=cmd["broadcasts"],
+                visualize=cmd["visualize"],
+                version=cmd["version"],
+                dbexport=cmd["dbexport"],
             ),
-            default_event_messages=DefaultEventMessages(
-                registration_success=event_msg_data["registration_success"],
-                already_registered=event_msg_data["already_registered"],
-                confirm_button_text=event_msg_data["confirm_button_text"],
-                confirm_confirmation=event_msg_data["confirm_confirmation"],
-                cancel_button_text=event_msg_data["cancel_button_text"],
-                cancel_confirmation=event_msg_data["cancel_confirmation"],
+            registration=RegistrationMessages(
+                no_active_event=reg["no_active_event"],
+                event_not_available=reg["event_not_available"],
+                event_already_ended=reg["event_already_ended"],
+                event_ended_notification=reg["event_ended_notification"],
+                question_intro=reg["question_intro"],
+                unknown_message=reg["unknown_message"],
+                register_button=reg["register_button"],
+                skip_button=reg["skip_button"],
+            ),
+            broadcast=BroadcastMessages(
+                history_intro=bc["history_intro"],
+                no_history=bc["no_history"],
+                history_header=bc["history_header"],
+                end_event_intro=bc["end_event_intro"],
+            ),
+            visualization=VisualizationMessages(
+                generating=vis["generating"],
+                success=vis["success"],
+                local_success=vis["local_success"],
+                no_events=vis["no_events"],
+            ),
+            dbexport=DbexportMessages(
+                generating=dbx["generating"],
+                success=dbx["success"],
+                error=dbx["error"],
+            ),
+            event_defaults=EventDefaults(
+                registration_success=evt["registration_success"],
+                already_registered=evt["already_registered"],
+                confirm_button=evt["confirm_button"],
+                confirm_message=evt["confirm_message"],
+                cancel_button=evt["cancel_button"],
+                cancel_message=evt["cancel_message"],
             ),
         )

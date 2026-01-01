@@ -11,45 +11,50 @@ data:
     admin_ids = [YOUR_TELEGRAM_ID]
     # admin_group_id = -1001234567890
 
-    [system_messages]
+    [commands]
+    start = "Register for events"
+    newevent = "Create a new event"
+    endevent = "End current event"
+    broadcast = "Send message to registrants"
+    stats = "View registration statistics"
+    export = "Export registrations to CSV"
+    history = "View past events"
+    broadcasts = "View broadcast history"
+    visualize = "Generate event visualization"
+    version = "Show bot version"
+    dbexport = "Export database as SQLite"
+
+    [registration]
     no_active_event = "No current events at the moment. Subscribe to our channel for updates!"
     event_not_available = "This event is no longer accepting registrations."
     event_already_ended = "This event has already ended."
     event_ended_notification = "{event_title} has concluded. Thank you for being part of it!"
-
-    register_button_text = "Register"
     question_intro = "Before we register you, a quick question:"
-    skip_question_button_text = "Skip"
-
     unknown_message = "Use /start to see current events and register."
-    start_command_description = "Register for events"
+    register_button = "Register"
+    skip_button = "Skip"
 
-    newevent_command_description = "Create a new event"
-    endevent_command_description = "End current event"
-    broadcast_command_description = "Send message to registrants"
-    stats_command_description = "View registration statistics"
-    export_command_description = "Export registrations to CSV"
-    history_command_description = "View past events"
-    history_broadcast_intro = "📢 *Broadcast to {event_title}*\n\nRecipients: {count} past registrants\n\nType your message:"
-    broadcasts_command_description = "View broadcast history"
-    no_broadcasts = "No broadcasts have been sent yet."
-    broadcast_history_header = "📢 *Broadcast History for {event_title}*\n\n"
-    visualize_command_description = "Generate event visualization"
-    version_command_description = "Show bot version"
-    visualization_success = "📊 Visualization generated!\n\n{url}"
-    visualization_local_success = "📊 Visualization saved locally:\n`{path}`"
-    visualization_generating = "Generating visualization..."
-    visualization_no_events = "No events found to visualize."
-    end_broadcast_intro = "📢 *Broadcast to {event_title}*\n\nRecipients: {count} registrants\n\nSuggested message:\n`{template}`\n\nType your message (or copy/edit the template):"
-    dbexport_command_description = "Export database as SQLite"
-    dbexport_generating = "Generating SQLite export..."
-    dbexport_success = "📦 Database exported!\n\nTables: {tables}\nTotal rows: {rows}"
-    dbexport_error = "❌ Failed to export database: {error}"
+    [broadcast]
+    history_intro = "📢 *Broadcast to {event_title}*\n\nRecipients: {count} past registrants\n\nType your message:"
+    no_history = "No broadcasts have been sent yet."
+    history_header = "📢 *Broadcast History for {event_title}*\n\n"
+    end_event_intro = "📢 *Broadcast to {event_title}*\n\nRecipients: {count} registrants\n\nSuggested message:\n`{template}`\n\nType your message (or copy/edit the template):"
 
-    [default_event_messages]
+    [visualization]
+    generating = "Generating visualization..."
+    success = "📊 Visualization generated!\n\n{url}"
+    local_success = "📊 Visualization saved locally:\n`{path}`"
+    no_events = "No events found to visualize."
+
+    [dbexport]
+    generating = "Generating SQLite export..."
+    success = "📦 Database exported!\n\nTables: {tables}\nTotal rows: {rows}"
+    error = "❌ Failed to export database: {error}"
+
+    [event_defaults]
     registration_success = "You're registered for {event_title}! We'll send you reminders before the event."
     already_registered = "You're already registered for {event_title}!"
-    confirm_button_text = "I'll be there!"
-    confirm_confirmation = "Great, see you at {event_title}! 🎉"
-    cancel_button_text = "I can't make it"
-    cancel_confirmation = "No problem, thanks for letting us know! You've been unregistered from {event_title}."
+    confirm_button = "I'll be there!"
+    confirm_message = "Great, see you at {event_title}! 🎉"
+    cancel_button = "I can't make it"
+    cancel_message = "No problem, thanks for letting us know! You've been unregistered from {event_title}."

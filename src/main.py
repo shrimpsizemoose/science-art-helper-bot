@@ -47,51 +47,22 @@ async def main() -> None:
 
     # Set default commands (for all users)
     user_commands = [
-        BotCommand(
-            command="start",
-            description=config.system_messages.start_command_description,
-        ),
+        BotCommand(command="start", description=config.commands.start),
     ]
     await bot.set_my_commands(user_commands, scope=BotCommandScopeDefault())
 
     admin_commands = [
         *user_commands,
-        BotCommand(
-            command="newevent",
-            description=config.system_messages.newevent_command_description,
-        ),
-        BotCommand(
-            command="endevent",
-            description=config.system_messages.endevent_command_description,
-        ),
-        BotCommand(
-            command="broadcast",
-            description=config.system_messages.broadcast_command_description,
-        ),
-        BotCommand(
-            command="stats",
-            description=config.system_messages.stats_command_description,
-        ),
-        BotCommand(
-            command="export",
-            description=config.system_messages.export_command_description,
-        ),
-        BotCommand(
-            command="history",
-            description=config.system_messages.history_command_description,
-        ),
-        BotCommand(
-            command="visualize",
-            description=config.system_messages.visualize_command_description,
-        ),
-        BotCommand(
-            command="version",
-            description=config.system_messages.version_command_description,
-        ),
-        BotCommand(
-            command="dbexport",
-            description=config.system_messages.dbexport_command_description,
-        ),
+        BotCommand(command="newevent", description=config.commands.newevent),
+        BotCommand(command="endevent", description=config.commands.endevent),
+        BotCommand(command="broadcast", description=config.commands.broadcast),
+        BotCommand(command="stats", description=config.commands.stats),
+        BotCommand(command="export", description=config.commands.export),
+        BotCommand(command="history", description=config.commands.history),
+        BotCommand(command="visualize", description=config.commands.visualize),
+        BotCommand(command="version", description=config.commands.version),
+        BotCommand(command="dbexport", description=config.commands.dbexport),
+        BotCommand(command="broadcasts", description=config.commands.broadcasts),
     ]
 
     for admin_id in config.admin_ids:

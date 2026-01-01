@@ -104,7 +104,7 @@ def get_event_message(event: Event, key: str, config: Config) -> str:
     event_msg = getattr(event, f"msg_{key}", None)
     if event_msg:
         return event_msg
-    return getattr(config.default_event_messages, key)
+    return getattr(config.event_defaults, key)
 
 
 def generate_event_csv(event: Event) -> io.StringIO:
@@ -283,7 +283,7 @@ async def cmd_start_with_code(
     )
 
     if not event:
-        await message.answer(config.system_messages.event_not_available)
+        await message.answer(config.registration.event_not_available)
         return
 
     user = get_or_create_user(message.from_user)
@@ -311,7 +311,7 @@ async def cmd_start_with_code(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=config.system_messages.register_button_text,
+                    text=config.registration.register_button,
                     callback_data=f"register:{event.id}",
                 )
             ]
@@ -330,7 +330,7 @@ async def cmd_start(message: Message, config: Config) -> None:
     event = Event.get_active()
 
     if not event:
-        await message.answer(config.system_messages.no_active_event)
+        await message.answer(config.registration.no_active_event)
         return
 
     user = get_or_create_user(message.from_user)
@@ -358,7 +358,7 @@ async def cmd_start(message: Message, config: Config) -> None:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=config.system_messages.register_button_text,
+                    text=config.registration.register_button,
                     callback_data=f"register:{event.id}",
                 )
             ]
@@ -458,7 +458,7 @@ async def handle_confirm_attendance(callback: CallbackQuery, config: Config) -> 
 
     if not event.is_active:
         await callback.answer(
-            config.system_messages.event_already_ended, show_alert=True
+            config.registration.event_already_ended, show_alert=True
         )
         return
 
@@ -485,7 +485,7 @@ async def handle_confirm_attendance(callback: CallbackQuery, config: Config) -> 
     registration.confirmed_at = utcnow()
     registration.save()
 
-    msg = get_event_message(event, "confirm_confirmation", config)
+    msg = get_event_message(event, "confirm_message", config)
     await callback.message.edit_text(
         msg.format(event_title=event.title, user_name=user.display_name)
     )
@@ -504,7 +504,7 @@ async def handle_cancel_registration(callback: CallbackQuery, config: Config) ->
 
     if not event.is_active:
         await callback.answer(
-            config.system_messages.event_already_ended, show_alert=True
+            config.registration.event_already_ended, show_alert=True
         )
         return
 
@@ -527,7 +527,7 @@ async def handle_cancel_registration(callback: CallbackQuery, config: Config) ->
     registration.cancelled_at = utcnow()
     registration.save()
 
-    msg = get_event_message(event, "cancel_confirmation", config)
+    msg = get_event_message(event, "cancel_message", config)
     await callback.message.edit_text(
         msg.format(event_title=event.title, user_name=user.display_name)
     )
@@ -546,7 +546,7 @@ async def handle_register_button(
         Event.is_active == True,  # noqa: E712
     )
     if not event:
-        await callback.answer(config.system_messages.event_not_available)
+        await callback.answer(config.registration.event_not_available)
         return
 
     user = get_or_create_user(callback.from_user)
@@ -584,7 +584,7 @@ async def handle_register_button(
                 + [
                     [
                         InlineKeyboardButton(
-                            text=config.system_messages.skip_question_button_text,
+                            text=config.registration.skip_button,
                             callback_data="answer_skip",
                         )
                     ]
@@ -594,7 +594,7 @@ async def handle_register_button(
                 "\n\n".join(
                     [
                         f"📋 *{event.title}*",
-                        config.system_messages.question_intro,
+                        config.registration.question_intro,
                         event.custom_question,
                     ]
                 ),
@@ -607,7 +607,7 @@ async def handle_register_button(
                 inline_keyboard=[
                     [
                         InlineKeyboardButton(
-                            text=config.system_messages.skip_question_button_text,
+                            text=config.registration.skip_button,
                             callback_data="answer_skip",
                         )
                     ]
@@ -617,7 +617,7 @@ async def handle_register_button(
                 "\n\n".join(
                     [
                         f"📋 *{event.title}*",
-                        config.system_messages.question_intro,
+                        config.registration.question_intro,
                         event.custom_question,
                     ]
                 ),
@@ -990,14 +990,14 @@ async def handle_endevent_confirm(
             return
 
         # Get template message
-        template = config.system_messages.event_ended_notification.format(
+        template = config.registration.event_ended_notification.format(
             event_title=event.title
         )
 
         await state.set_state(EndBroadcastStates.message)
         await state.update_data(event_id=event.id)
 
-        intro = config.system_messages.end_broadcast_intro.format(
+        intro = config.broadcast.end_event_intro.format(
             event_title=event.title,
             count=reg_count,
             template=template,
@@ -1275,8 +1275,8 @@ async def send_broadcast(
 
     keyboard = None
     if include_buttons:
-        confirm_btn_text = get_event_message(event, "confirm_button_text", config)
-        cancel_btn_text = get_event_message(event, "cancel_button_text", config)
+        confirm_btn_text = get_event_message(event, "confirm_button", config)
+        cancel_btn_text = get_event_message(event, "cancel_button", config)
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -1348,7 +1348,7 @@ async def cmd_dbexport(message: Message, config: Config) -> None:
     if not config.is_admin_context(message.chat.id, message.from_user.id):
         return
 
-    await message.answer(config.system_messages.dbexport_generating)
+    await message.answer(config.dbexport.generating)
 
     try:
         export_path, stats = generate_sqlite_export()
@@ -1359,7 +1359,7 @@ async def cmd_dbexport(message: Message, config: Config) -> None:
         )
         await message.answer_document(
             file,
-            caption=config.system_messages.dbexport_success.format(
+            caption=config.dbexport.success.format(
                 tables=stats["tables"],
                 rows=stats["rows"],
             ),
@@ -1369,7 +1369,7 @@ async def cmd_dbexport(message: Message, config: Config) -> None:
         export_path.unlink(missing_ok=True)
     except Exception as e:
         await message.answer(
-            config.system_messages.dbexport_error.format(error=str(e))
+            config.dbexport.error.format(error=str(e))
         )
 
 
@@ -1589,7 +1589,7 @@ async def handle_history_broadcast_start(
     await state.set_state(HistoryBroadcastStates.message)
     await state.update_data(event_id=event.id)
 
-    intro = config.system_messages.history_broadcast_intro.format(
+    intro = config.broadcast.history_intro.format(
         event_title=event.title,
         count=reg_count,
     )
@@ -1662,7 +1662,7 @@ async def cmd_broadcasts(message: Message, config: Config) -> None:
 
     events_list = list(events_with_broadcasts)
     if not events_list:
-        await message.answer(config.system_messages.no_broadcasts)
+        await message.answer(config.broadcast.no_history)
         return
 
     text = "📢 *Broadcast History*\n\n"
@@ -1711,7 +1711,7 @@ async def handle_broadcasts_event(
         await callback.answer("No broadcasts for this event")
         return
 
-    header = config.system_messages.broadcast_history_header.format(
+    header = config.broadcast.history_header.format(
         event_title=event.title
     )
     text = header
@@ -1851,7 +1851,7 @@ async def handle_broadcasts_back(callback: CallbackQuery, config: Config) -> Non
 
     events_list = list(events_with_broadcasts)
     if not events_list:
-        await callback.message.edit_text(config.system_messages.no_broadcasts)
+        await callback.message.edit_text(config.broadcast.no_history)
         await callback.answer()
         return
 
@@ -1894,7 +1894,7 @@ async def cmd_visualize(message: Message, config: Config) -> None:
     )
 
     if not active_event and not archived_events:
-        await message.answer(config.system_messages.visualization_no_events)
+        await message.answer(config.visualization.no_events)
         return
 
     buttons = []
@@ -1933,14 +1933,14 @@ async def handle_visualize_event(callback: CallbackQuery, config: Config) -> Non
         await callback.answer("Event not found")
         return
 
-    await callback.message.edit_text(config.system_messages.visualization_generating)
+    await callback.message.edit_text(config.visualization.generating)
 
     try:
         result, is_remote = generate_and_upload_visualization(event)
         if is_remote:
-            msg = config.system_messages.visualization_success.format(url=result)
+            msg = config.visualization.success.format(url=result)
         else:
-            msg = config.system_messages.visualization_local_success.format(path=result)
+            msg = config.visualization.local_success.format(path=result)
         await callback.message.edit_text(msg, parse_mode="Markdown")
     except Exception as e:
         await callback.message.edit_text(f"❌ Error generating visualization: {e}")
@@ -1953,4 +1953,4 @@ async def handle_visualize_event(callback: CallbackQuery, config: Config) -> Non
 
 @router.message()
 async def handle_unknown_message(message: Message, config: Config) -> None:
-    await message.answer(config.system_messages.unknown_message)
+    await message.answer(config.registration.unknown_message)

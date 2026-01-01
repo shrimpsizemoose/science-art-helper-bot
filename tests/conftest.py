@@ -25,45 +25,53 @@ def sample_config_file(tmp_path):
 admin_ids = [123456789, 987654321]
 admin_group_id = -1001234567890
 
-[system_messages]
+[commands]
+start = "Register"
+newevent = "Create a new event"
+endevent = "End current event"
+broadcast = "Send message to registrants"
+stats = "View registration statistics"
+export = "Export registrations to CSV"
+history = "View past events"
+broadcasts = "View broadcast history"
+visualize = "Generate event visualization"
+version = "Show bot version"
+dbexport = "Export database as SQLite"
+
+[registration]
 no_active_event = "No events right now"
 event_not_available = "Event closed"
 event_already_ended = "This event has already ended."
 event_ended_notification = "{event_title} has concluded."
-register_button_text = "Register"
 question_intro = "Quick question:"
-skip_question_button_text = "Skip"
 unknown_message = "Use /start to register."
-start_command_description = "Register"
-newevent_command_description = "Create a new event"
-endevent_command_description = "End current event"
-broadcast_command_description = "Send message to registrants"
-stats_command_description = "View registration statistics"
-export_command_description = "Export registrations to CSV"
-history_command_description = "View past events"
-history_broadcast_intro = "Broadcast to {event_title}. Recipients: {count}"
-broadcasts_command_description = "View broadcast history"
-no_broadcasts = "No broadcasts have been sent yet."
-broadcast_history_header = "Broadcast History for {event_title}"
-visualize_command_description = "Generate event visualization"
-version_command_description = "Show bot version"
-visualization_success = "Visualization generated! {url}"
-visualization_local_success = "Visualization saved: {path}"
-visualization_generating = "Generating..."
-visualization_no_events = "No events to visualize"
-end_broadcast_intro = "Broadcast to {event_title}. Recipients: {count}. Template: {template}"
-dbexport_command_description = "Export database as SQLite"
-dbexport_generating = "Generating SQLite export..."
-dbexport_success = "Database exported! Tables: {tables}, Rows: {rows}"
-dbexport_error = "Failed to export: {error}"
+register_button = "Register"
+skip_button = "Skip"
 
-[default_event_messages]
+[broadcast]
+history_intro = "Broadcast to {event_title}. Recipients: {count}"
+no_history = "No broadcasts have been sent yet."
+history_header = "Broadcast History for {event_title}"
+end_event_intro = "Broadcast to {event_title}. Recipients: {count}. Template: {template}"
+
+[visualization]
+generating = "Generating..."
+success = "Visualization generated! {url}"
+local_success = "Visualization saved: {path}"
+no_events = "No events to visualize"
+
+[dbexport]
+generating = "Generating SQLite export..."
+success = "Database exported! Tables: {tables}, Rows: {rows}"
+error = "Failed to export: {error}"
+
+[event_defaults]
 registration_success = "Registered for {event_title}!"
 already_registered = "Already in {event_title}"
-confirm_button_text = "I'll be there!"
-confirm_confirmation = "See you at {event_title}!"
-cancel_button_text = "Cancel"
-cancel_confirmation = "Cancelled from {event_title}"
+confirm_button = "I'll be there!"
+confirm_message = "See you at {event_title}!"
+cancel_button = "Cancel"
+cancel_message = "Cancelled from {event_title}"
 """
     config_path = tmp_path / "config.toml"
     config_path.write_text(config_content)

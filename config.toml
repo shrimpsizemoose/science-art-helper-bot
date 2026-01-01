@@ -8,7 +8,21 @@ admin_ids = []
 # If not set, admin commands only work in DM with bot
 # admin_group_id = -1001234567890
 
-[system_messages]
+[commands]
+# Bot menu command descriptions
+start = "Register for events"
+newevent = "Create a new event"
+endevent = "End current event"
+broadcast = "Send message to registrants"
+stats = "View registration statistics"
+export = "Export registrations to CSV"
+history = "View past events"
+broadcasts = "View broadcast history"
+visualize = "Generate event visualization"
+version = "Show bot version"
+dbexport = "Export database as SQLite"
+
+[registration]
 # Shown when user starts bot with no active event
 no_active_event = "No current events at the moment. Subscribe to our channel for updates!"
 
@@ -21,89 +35,57 @@ event_already_ended = "This event has already ended."
 # Notification sent to participants when event ends (supports {event_title})
 event_ended_notification = "{event_title} has concluded. Thank you for being part of it!"
 
-# Register button text shown when user opens bot without deep link
-register_button_text = "Register"
-
 # Intro text shown before custom question
 question_intro = "Before we register you, a quick question:"
-
-# Button to skip answering the custom question
-skip_question_button_text = "Skip"
 
 # Shown when user sends an unrecognized message
 unknown_message = "Use /start to see current events and register."
 
-# Description for /start command in bot menu
-start_command_description = "Register for events"
+# Button labels
+register_button = "Register"
+skip_button = "Skip"
 
-# Admin command descriptions for bot menu
-newevent_command_description = "Create a new event"
-endevent_command_description = "End current event"
-broadcast_command_description = "Send message to registrants"
-stats_command_description = "View registration statistics"
-export_command_description = "Export registrations to CSV"
-history_command_description = "View past events"
-
+[broadcast]
 # Message shown when admin selects to broadcast to past event registrants
-history_broadcast_intro = "📢 *Broadcast to {event_title}*\n\nRecipients: {count} past registrants\n\nType your message:"
-
-# Description for /broadcasts command in bot menu
-broadcasts_command_description = "View broadcast history"
+history_intro = "📢 *Broadcast to {event_title}*\n\nRecipients: {count} past registrants\n\nType your message:"
 
 # Shown when no broadcasts have been sent
-no_broadcasts = "No broadcasts have been sent yet."
+no_history = "No broadcasts have been sent yet."
 
 # Header for broadcast history view (supports {event_title})
-broadcast_history_header = "📢 *Broadcast History for {event_title}*\n\n"
-
-# Description for /visualize command in bot menu
-visualize_command_description = "Generate event visualization"
-
-# Description for /version command in bot menu
-version_command_description = "Show bot version"
-
-# Shown when visualization is generated successfully (supports {url})
-visualization_success = "📊 Visualization generated!\n\n{url}"
-
-# Shown when visualization is saved locally (supports {path})
-visualization_local_success = "📊 Visualization saved locally:\n`{path}`"
-
-# Shown during visualization generation
-visualization_generating = "Generating visualization..."
-
-# Shown when no events exist to visualize
-visualization_no_events = "No events found to visualize."
+history_header = "📢 *Broadcast History for {event_title}*\n\n"
 
 # Intro for broadcast after ending event (supports {event_title}, {count}, {template})
-end_broadcast_intro = "✅ *Event \"{event_title}\" archived!*\n\n{count} registrants. Example message:\n\n`{template}`\n\nType your message (or copy the template above):"
+end_event_intro = "✅ *Event \"{event_title}\" archived!*\n\n{count} registrants. Example message:\n\n`{template}`\n\nType your message (or copy the template above):"
 
-# Description for /dbexport command in bot menu
-dbexport_command_description = "Export database as SQLite"
+[visualization]
+generating = "Generating visualization..."
+success = "📊 Visualization generated!\n\n{url}"
+local_success = "📊 Visualization saved locally:\n`{path}`"
+no_events = "No events found to visualize."
 
-# Shown when database export starts
-dbexport_generating = "Generating SQLite export..."
+[dbexport]
+generating = "Generating SQLite export..."
+success = "📦 Database exported!\n\nTables: {tables}\nTotal rows: {rows}"
+error = "❌ Failed to export database: {error}"
 
-# Shown when database export succeeds (supports {tables}, {rows})
-dbexport_success = "📦 Database exported!\n\nTables: {tables}\nTotal rows: {rows}"
+[event_defaults]
+# These can be overridden per-event
 
-# Shown when database export fails
-dbexport_error = "❌ Failed to export database: {error}"
-
-[default_event_messages]
-# Shown after successful registration. Supports {event_title}, {user_name}
+# Shown after successful registration (supports {event_title}, {user_name})
 registration_success = "You're registered for {event_title}! We'll send you reminders before the event."
 
 # Shown when user is already registered
 already_registered = "You're already registered for {event_title}!"
 
 # Button text for confirming attendance (in broadcast messages)
-confirm_button_text = "I'll be there!"
+confirm_button = "I'll be there!"
 
 # Shown after user confirms attendance
-confirm_confirmation = "Great, see you at {event_title}! 🎉"
+confirm_message = "Great, see you at {event_title}! 🎉"
 
 # Button text for cancelling registration
-cancel_button_text = "I can't make it"
+cancel_button = "I can't make it"
 
 # Shown after user cancels registration
-cancel_confirmation = "No problem, thanks for letting us know! You've been unregistered from {event_title}."
+cancel_message = "No problem, thanks for letting us know! You've been unregistered from {event_title}."
