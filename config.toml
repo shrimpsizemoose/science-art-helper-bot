@@ -67,6 +67,7 @@ no_events = "No events found to visualize."
 [dbexport]
 generating = "Generating SQLite export..."
 success = "📦 Database exported!\n\nTables: {tables}\nTotal rows: {rows}"
+success_url = "📦 Database exported!\n\nTables: {tables}\nTotal rows: {rows}\n\nDownload: {url}"
 error = "❌ Failed to export database: {error}"
 
 [event_defaults]

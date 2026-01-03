@@ -24,7 +24,7 @@ def get_r2_client():
     )
 
 
-def upload_to_r2(content: bytes, filename: str) -> str:
+def upload_to_r2(content: bytes, filename: str, content_type: str = "text/html") -> str:
     client = get_r2_client()
     bucket_name = os.environ["R2_BUCKET_NAME"]
     public_url = os.environ["R2_PUBLIC_URL"].rstrip("/")
@@ -40,7 +40,7 @@ def upload_to_r2(content: bytes, filename: str) -> str:
             Bucket=bucket_name,
             Key=key,
             Body=content,
-            ContentType="text/html",
+            ContentType=content_type,
         )
     except ClientError:
         raise

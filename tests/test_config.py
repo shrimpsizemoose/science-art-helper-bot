@@ -76,6 +76,7 @@ no_events = "No events"
 [dbexport]
 generating = "Generating..."
 success = "Done! Tables: {tables}, Rows: {rows}"
+success_url = "Done! Tables: {tables}, Rows: {rows}, URL: {url}"
 error = "Error: {error}"
 
 [event_defaults]

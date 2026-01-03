@@ -19,7 +19,7 @@ from aiogram.types import (
 )
 
 from src.config import Config
-from src.db_export import generate_sqlite_export
+from src.db_export import generate_and_upload_export
 from src.formatting import (
     build_broadcast_buttons,
     format_endevent_result,
@@ -1344,33 +1344,33 @@ async def cmd_version(message: Message, config: Config) -> None:
 
 @router.message(Command("dbexport"))
 async def cmd_dbexport(message: Message, config: Config) -> None:
-    """Export entire database as SQLite file."""
     if not config.is_admin_context(message.chat.id, message.from_user.id):
         return
 
     await message.answer(config.dbexport.generating)
 
     try:
-        export_path, stats = generate_sqlite_export()
+        result, stats, is_url = generate_and_upload_export()
 
-        file = BufferedInputFile(
-            export_path.read_bytes(),
-            filename="workshop_bot_export.db",
-        )
-        await message.answer_document(
-            file,
-            caption=config.dbexport.success.format(
-                tables=stats["tables"],
-                rows=stats["rows"],
-            ),
-        )
-
-        # Cleanup temp file
-        export_path.unlink(missing_ok=True)
+        if is_url:
+            await message.answer(
+                config.dbexport.success_url.format(
+                    tables=stats["tables"],
+                    rows=stats["rows"],
+                    url=result,
+                )
+            )
+        else:
+            file = BufferedInputFile(result, filename="workshop_bot_export.db")
+            await message.answer_document(
+                file,
+                caption=config.dbexport.success.format(
+                    tables=stats["tables"],
+                    rows=stats["rows"],
+                ),
+            )
     except Exception as e:
-        await message.answer(
-            config.dbexport.error.format(error=str(e))
-        )
+        await message.answer(config.dbexport.error.format(error=str(e)))
 
 
 @router.message(Command("stats"))

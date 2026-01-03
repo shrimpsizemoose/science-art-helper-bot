@@ -50,6 +50,7 @@ class VisualizationMessages:
 class DbexportMessages:
     generating: str
     success: str
+    success_url: str
     error: str
 
 
@@ -144,6 +145,7 @@ class Config:
             dbexport=DbexportMessages(
                 generating=dbx["generating"],
                 success=dbx["success"],
+                success_url=dbx["success_url"],
                 error=dbx["error"],
             ),
             event_defaults=EventDefaults(
