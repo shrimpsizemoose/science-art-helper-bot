@@ -1,8 +1,6 @@
-from datetime import datetime, UTC
-
 from peewee import Model, SqliteDatabase
 
-from src.models import Broadcast, Event, Registration, User
+from src.models import Broadcast, Event, Registration, User, utcnow
 from src.r2_upload import is_r2_configured, upload_to_r2
 
 
@@ -12,12 +10,9 @@ def _copy_model_data(source_model: type[Model], export_db: SqliteDatabase) -> in
     if not rows:
         return 0
 
-    # Build field name -> column name mapping for proper SQL column names
-    field_to_column = {
-        field.name: field.column_name for field in source_model._meta.sorted_fields
-    }
-
+    field_to_column = {f.name: f.column_name for f in source_model._meta.sorted_fields}
     table_name = source_model._meta.table_name
+
     with export_db.atomic():
         for row in rows:
             processed = {}
@@ -40,7 +35,7 @@ def _copy_model_data(source_model: type[Model], export_db: SqliteDatabase) -> in
 def generate_sqlite_export() -> tuple[bytes, dict]:
     """Generate a SQLite export of the entire database in memory.
 
-    Uses sqlite3.Connection.serialize() (Python 3.11+) to avoid file I/O entirely.
+    Uses sqlite3.Connection.serialize() to avoid file I/O (requires Python 3.11+)
     """
     export_db = SqliteDatabase(":memory:")
     export_db.connect()
@@ -55,7 +50,6 @@ def generate_sqlite_export() -> tuple[bytes, dict]:
         rows_copied = _copy_model_data(model, export_db)
         total_rows += rows_copied
 
-    # Serialize in-memory db to bytes - no file I/O needed
     db_bytes = export_db.connection().serialize()
     export_db.close()
 
@@ -70,7 +64,7 @@ def generate_and_upload_export() -> tuple[str | bytes, dict, bool]:
     db_bytes, stats = generate_sqlite_export()
 
     if is_r2_configured():
-        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+        timestamp = utcnow().strftime("%Y%m%d_%H%M%S")
         filename = f"workshop_bot_export_{timestamp}.db"
         url = upload_to_r2(db_bytes, filename, content_type="application/x-sqlite3")
         return url, stats, True

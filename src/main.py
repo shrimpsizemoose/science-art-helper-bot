@@ -53,16 +53,21 @@ async def main() -> None:
 
     admin_commands = [
         *user_commands,
-        BotCommand(command="newevent", description=config.commands.newevent),
-        BotCommand(command="endevent", description=config.commands.endevent),
-        BotCommand(command="broadcast", description=config.commands.broadcast),
-        BotCommand(command="stats", description=config.commands.stats),
-        BotCommand(command="export", description=config.commands.export),
-        BotCommand(command="history", description=config.commands.history),
-        BotCommand(command="visualize", description=config.commands.visualize),
-        BotCommand(command="version", description=config.commands.version),
-        BotCommand(command="dbexport", description=config.commands.dbexport),
-        BotCommand(command="broadcasts", description=config.commands.broadcasts),
+        *[
+            BotCommand(command=cmd, description=getattr(config.commands, cmd))
+            for cmd in [
+                "newevent",
+                "endevent",
+                "broadcast",
+                "stats",
+                "export",
+                "history",
+                "visualize",
+                "version",
+                "dbexport",
+                "broadcasts",
+            ]
+        ],
     ]
 
     for admin_id in config.admin_ids:

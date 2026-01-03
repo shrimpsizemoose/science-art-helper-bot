@@ -2,11 +2,14 @@ import csv
 import io
 import os
 import re
-
 from collections import Counter
 
 from aiogram import Bot, F, Router
-from aiogram.exceptions import TelegramForbiddenError, TelegramNotFound, TelegramRetryAfter
+from aiogram.exceptions import (
+    TelegramForbiddenError,
+    TelegramNotFound,
+    TelegramRetryAfter,
+)
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -167,6 +170,7 @@ async def send_broadcast_messages(
         progress_interval: How often to call progress_callback (every N messages)
 
     failure_reasons is a Counter with keys like 'blocked', 'deactivated', 'not_found', 'other'.
+
     """
     import asyncio
 
@@ -229,7 +233,9 @@ def format_failure_reasons(failure_reasons: Counter) -> str:
     return f" ({', '.join(parts)})"
 
 
-def format_broadcast_progress(sent: int, failed: int, total: int, processed: int) -> str:
+def format_broadcast_progress(
+    sent: int, failed: int, total: int, processed: int
+) -> str:
     """Format broadcast progress message."""
     pct = int(processed / total * 100) if total > 0 else 0
     bar_filled = pct // 10
@@ -457,9 +463,7 @@ async def handle_confirm_attendance(callback: CallbackQuery, config: Config) -> 
         return
 
     if not event.is_active:
-        await callback.answer(
-            config.registration.event_already_ended, show_alert=True
-        )
+        await callback.answer(config.registration.event_already_ended, show_alert=True)
         return
 
     user = User.get_or_none(User.telegram_id == callback.from_user.id)
@@ -503,9 +507,7 @@ async def handle_cancel_registration(callback: CallbackQuery, config: Config) ->
         return
 
     if not event.is_active:
-        await callback.answer(
-            config.registration.event_already_ended, show_alert=True
-        )
+        await callback.answer(config.registration.event_already_ended, show_alert=True)
         return
 
     user = User.get_or_none(User.telegram_id == callback.from_user.id)
@@ -1093,10 +1095,12 @@ async def handle_end_broadcast_send(
         await state.clear()
         return
 
-    registrations = list(Registration.select().where(
-        Registration.event == event,
-        Registration.cancelled == False,  # noqa: E712
-    ))
+    registrations = list(
+        Registration.select().where(
+            Registration.event == event,
+            Registration.cancelled == False,  # noqa: E712
+        )
+    )
 
     # Show initial progress
     total = len(registrations)
@@ -1113,7 +1117,9 @@ async def handle_end_broadcast_send(
         )
 
     sent, failed, failure_reasons = await send_broadcast_messages(
-        bot, registrations, broadcast_text,
+        bot,
+        registrations,
+        broadcast_text,
         progress_callback=on_progress,
     )
 
@@ -1310,7 +1316,10 @@ async def send_broadcast(
         )
 
     sent, failed, failure_reasons = await send_broadcast_messages(
-        bot, registrations, broadcast_text, keyboard,
+        bot,
+        registrations,
+        broadcast_text,
+        keyboard,
         progress_callback=on_progress,
     )
 
@@ -1508,10 +1517,12 @@ async def handle_history_broadcast_send(
         await state.clear()
         return
 
-    registrations = list(Registration.select().where(
-        Registration.event == event,
-        Registration.cancelled == False,  # noqa: E712
-    ))
+    registrations = list(
+        Registration.select().where(
+            Registration.event == event,
+            Registration.cancelled == False,  # noqa: E712
+        )
+    )
 
     # Show initial progress
     total = len(registrations)
@@ -1528,7 +1539,9 @@ async def handle_history_broadcast_send(
         )
 
     sent, failed, failure_reasons = await send_broadcast_messages(
-        bot, registrations, broadcast_text,
+        bot,
+        registrations,
+        broadcast_text,
         progress_callback=on_progress,
     )
 
@@ -1654,10 +1667,7 @@ async def cmd_broadcasts(message: Message, config: Config) -> None:
 
     # Get all events that have broadcasts
     events_with_broadcasts = (
-        Event.select()
-        .join(Broadcast)
-        .group_by(Event)
-        .order_by(Event.created_at.desc())
+        Event.select().join(Broadcast).group_by(Event).order_by(Event.created_at.desc())
     )
 
     events_list = list(events_with_broadcasts)
@@ -1711,9 +1721,7 @@ async def handle_broadcasts_event(
         await callback.answer("No broadcasts for this event")
         return
 
-    header = config.broadcast.history_header.format(
-        event_title=event.title
-    )
+    header = config.broadcast.history_header.format(event_title=event.title)
     text = header
 
     buttons = []
@@ -1726,7 +1734,11 @@ async def handle_broadcasts_event(
             sent_str = str(sent_at)[:16]
 
         # Truncate message preview
-        preview = bc.message_text[:50] + "..." if len(bc.message_text) > 50 else bc.message_text
+        preview = (
+            bc.message_text[:50] + "..."
+            if len(bc.message_text) > 50
+            else bc.message_text
+        )
         preview = preview.replace("\n", " ")
 
         audience = "All" if bc.target_audience == "all" else "Non-responders"
@@ -1783,7 +1795,9 @@ async def handle_broadcasts_detail(callback: CallbackQuery, config: Config) -> N
     else:
         sent_str = str(sent_at)
 
-    audience = "All registrants" if bc.target_audience == "all" else "Non-responders only"
+    audience = (
+        "All registrants" if bc.target_audience == "all" else "Non-responders only"
+    )
     btns = "Yes" if bc.include_buttons else "No"
 
     text = "📢 *Broadcast Details*\n\n"
@@ -1843,10 +1857,7 @@ async def handle_broadcasts_back(callback: CallbackQuery, config: Config) -> Non
 
     # Get all events that have broadcasts
     events_with_broadcasts = (
-        Event.select()
-        .join(Broadcast)
-        .group_by(Event)
-        .order_by(Event.created_at.desc())
+        Event.select().join(Broadcast).group_by(Event).order_by(Event.created_at.desc())
     )
 
     events_list = list(events_with_broadcasts)
@@ -1899,20 +1910,24 @@ async def cmd_visualize(message: Message, config: Config) -> None:
 
     buttons = []
     if active_event:
-        buttons.append([
-            InlineKeyboardButton(
-                text=f"📌 {active_event.title} (Active)",
-                callback_data=f"visualize:event:{active_event.id}",
-            )
-        ])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"📌 {active_event.title} (Active)",
+                    callback_data=f"visualize:event:{active_event.id}",
+                )
+            ]
+        )
 
     for i, event in enumerate(archived_events, 1):
-        buttons.append([
-            InlineKeyboardButton(
-                text=f"{i}. {event.title}",
-                callback_data=f"visualize:event:{event.id}",
-            )
-        ])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{i}. {event.title}",
+                    callback_data=f"visualize:event:{event.id}",
+                )
+            ]
+        )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     await message.answer(

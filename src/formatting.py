@@ -2,11 +2,13 @@ from aiogram.types import InlineKeyboardButton
 
 
 def format_event_info(title: str, description: str, datetime_text: str) -> str:
-    return "\n\n".join([
-        f"📋 *{title}*",
-        description,
-        f"📅 {datetime_text}",
-    ])
+    return "\n\n".join(
+        [
+            f"📋 *{title}*",
+            description,
+            f"📅 {datetime_text}",
+        ]
+    )
 
 
 def format_stats_message(
@@ -15,14 +17,18 @@ def format_stats_message(
     options: list[str] | None = None,
     answer_counts: dict[str, int] | None = None,
 ) -> str:
-    text = "\n\n".join([
-        f"📊 *Stats: {event_title}*",
-        "\n".join([
-            f"🎉 Confirmed: {stats['confirmed']}",
-            f"📋 Registered: {stats['registered']}",
-            f"❌ Cancelled: {stats['cancelled']}",
-        ]),
-    ])
+    text = "\n\n".join(
+        [
+            f"📊 *Stats: {event_title}*",
+            "\n".join(
+                [
+                    f"🎉 Confirmed: {stats['confirmed']}",
+                    f"📋 Registered: {stats['registered']}",
+                    f"❌ Cancelled: {stats['cancelled']}",
+                ]
+            ),
+        ]
+    )
 
     if options and answer_counts is not None:
         text += "\n\n*Answers:*"
@@ -42,38 +48,48 @@ def build_broadcast_buttons(
     buttons = []
 
     if confirmation_sent:
-        buttons.append([
-            InlineKeyboardButton(
-                text=f"📤 Send to all ({all_count})",
-                callback_data="broadcast:send:no_buttons:all",
-            ),
-        ])
-        if non_responders_count > 0 and non_responders_count < all_count:
-            buttons.append([
+        buttons.append(
+            [
                 InlineKeyboardButton(
-                    text=f"🎯 Send to non-responders ({non_responders_count}) + buttons",
-                    callback_data="broadcast:send:buttons:non_responders",
+                    text=f"📤 Send to all ({all_count})",
+                    callback_data="broadcast:send:no_buttons:all",
                 ),
-            ])
+            ]
+        )
+        if non_responders_count > 0 and non_responders_count < all_count:
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"🎯 Send to non-responders ({non_responders_count}) + buttons",
+                        callback_data="broadcast:send:buttons:non_responders",
+                    ),
+                ]
+            )
         prompt = "_Confirmation was already sent. Choose recipients:_"
     else:
-        buttons.append([
-            InlineKeyboardButton(
-                text="✅ Include participation confirmation buttons",
-                callback_data="broadcast:send:buttons:all",
-            ),
-        ])
-        buttons.append([
-            InlineKeyboardButton(
-                text="📤 Send without buttons",
-                callback_data="broadcast:send:no_buttons:all",
-            ),
-        ])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="✅ Include participation confirmation buttons",
+                    callback_data="broadcast:send:buttons:all",
+                ),
+            ]
+        )
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="📤 Send without buttons",
+                    callback_data="broadcast:send:no_buttons:all",
+                ),
+            ]
+        )
         prompt = "_Include participation confirmation buttons?_"
 
-    buttons.append([
-        InlineKeyboardButton(text="❌ Cancel", callback_data="broadcast:cancel"),
-    ])
+    buttons.append(
+        [
+            InlineKeyboardButton(text="❌ Cancel", callback_data="broadcast:cancel"),
+        ]
+    )
 
     return buttons, prompt
 
@@ -86,15 +102,19 @@ def format_endevent_result(
     failed: int = 0,
     failure_details: str = "",
 ) -> str:
-    text = "\n\n".join([
-        f'✅ *Event "{event_title}" archived.*',
-        "\n".join([
-            "📊 Final stats:",
-            f"Registered: {stats['registered']}",
-            f"Confirmed: {stats['confirmed']}",
-            f"Cancelled: {stats['cancelled']}",
-        ]),
-    ])
+    text = "\n\n".join(
+        [
+            f'✅ *Event "{event_title}" archived.*',
+            "\n".join(
+                [
+                    "📊 Final stats:",
+                    f"Registered: {stats['registered']}",
+                    f"Confirmed: {stats['confirmed']}",
+                    f"Cancelled: {stats['cancelled']}",
+                ]
+            ),
+        ]
+    )
 
     if notify:
         text += f"\n\n📤 Notifications sent: {sent}"
@@ -115,6 +135,7 @@ def format_history_list(
 
     Returns:
         (text, export_buttons, broadcast_buttons)
+
     """
     text = "📜 *Past Events:*\n"
     export_buttons = []
@@ -127,12 +148,14 @@ def format_history_list(
         )
         export_buttons.append(
             InlineKeyboardButton(
-                text=f"Export #{i} ({event_id})", callback_data=f"history:export:{event_id}"
+                text=f"Export #{i} ({event_id})",
+                callback_data=f"history:export:{event_id}",
             )
         )
         broadcast_buttons.append(
             InlineKeyboardButton(
-                text=f"Broadcast #{i} ({event_id})", callback_data=f"history:broadcast:{event_id}"
+                text=f"Broadcast #{i} ({event_id})",
+                callback_data=f"history:broadcast:{event_id}",
             )
         )
 
@@ -155,7 +178,9 @@ def format_event_created(
 
     lines.append(f"🔗 Registration link:\n`{link}`")
 
-    return "\n\n".join([
-        "✅ *Event created!*",
-        "\n".join(lines),
-    ])
+    return "\n\n".join(
+        [
+            "✅ *Event created!*",
+            "\n".join(lines),
+        ]
+    )

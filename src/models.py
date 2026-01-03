@@ -1,4 +1,4 @@
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 from peewee import (
