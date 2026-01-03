@@ -1,20 +1,25 @@
 import sqlite3
-from pathlib import Path
 
 from src.db_export import generate_sqlite_export
 from src.models import Broadcast, Event, Registration, User
 
 
-def test_generate_sqlite_export_empty(temp_db):
-    """Empty database produces valid SQLite with schema but no data."""
-    export_path, stats = generate_sqlite_export()
+def _load_export_db(db_bytes: bytes) -> sqlite3.Connection:
+    """Load exported bytes into a sqlite3 connection for testing."""
+    conn = sqlite3.connect(":memory:")
+    conn.deserialize(db_bytes)
+    return conn
 
-    assert export_path.exists()
+
+def test_generate_sqlite_export_empty(temp_db):
+    db_bytes, stats = generate_sqlite_export()
+
+    assert isinstance(db_bytes, bytes)
+    assert len(db_bytes) > 0
     assert stats["tables"] == 4
     assert stats["rows"] == 0
 
-    # Verify it's a valid SQLite database with tables
-    conn = sqlite3.connect(export_path)
+    conn = _load_export_db(db_bytes)
     cursor = conn.cursor()
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
     tables = {row[0] for row in cursor.fetchall()}
@@ -25,11 +30,8 @@ def test_generate_sqlite_export_empty(temp_db):
     assert "registration" in tables
     assert "broadcast" in tables
 
-    export_path.unlink()
-
 
 def test_generate_sqlite_export_with_data(temp_db):
-    """Data is correctly copied to export database."""
     user = User.create(telegram_id=123, username="alice", first_name="Alice")
     event = Event.create(
         title="Test Event",
@@ -40,13 +42,12 @@ def test_generate_sqlite_export_with_data(temp_db):
     Registration.create(user=user, event=event, answer="Yes")
     Broadcast.create(event=event, message_text="Hello!", target_audience="all")
 
-    export_path, stats = generate_sqlite_export()
+    db_bytes, stats = generate_sqlite_export()
 
     assert stats["tables"] == 4
-    assert stats["rows"] == 4  # 1 user + 1 event + 1 registration + 1 broadcast
+    assert stats["rows"] == 4
 
-    # Verify data in exported database
-    conn = sqlite3.connect(export_path)
+    conn = _load_export_db(db_bytes)
     cursor = conn.cursor()
 
     cursor.execute("SELECT telegram_id, username FROM user")
@@ -72,11 +73,9 @@ def test_generate_sqlite_export_with_data(temp_db):
     assert broadcasts[0][0] == "Hello!"
 
     conn.close()
-    export_path.unlink()
 
 
 def test_generate_sqlite_export_stats_accuracy(temp_db):
-    """Stats accurately reflect number of rows."""
     for i in range(5):
         User.create(telegram_id=i, username=f"user{i}")
     for i in range(3):
@@ -87,28 +86,22 @@ def test_generate_sqlite_export_stats_accuracy(temp_db):
             code=f"event_{i}",
         )
 
-    export_path, stats = generate_sqlite_export()
+    db_bytes, stats = generate_sqlite_export()
 
     assert stats["tables"] == 4
-    assert stats["rows"] == 8  # 5 users + 3 events
-
-    export_path.unlink()
+    assert stats["rows"] == 8
 
 
-def test_sqlite_export_cleanup_responsibility(temp_db):
-    """Verify export returns a path that caller can clean up."""
-    export_path, _ = generate_sqlite_export()
+def test_generate_sqlite_export_returns_bytes(temp_db):
+    db_bytes, _ = generate_sqlite_export()
 
-    assert isinstance(export_path, Path)
-    assert export_path.exists()
-
-    # Caller is responsible for cleanup
-    export_path.unlink()
-    assert not export_path.exists()
+    assert isinstance(db_bytes, bytes)
+    assert len(db_bytes) > 0
+    # SQLite files start with "SQLite format 3\x00"
+    assert db_bytes[:16] == b"SQLite format 3\x00"
 
 
 def test_generate_sqlite_export_unicode_data(temp_db):
-    """Unicode characters are preserved in export."""
     User.create(telegram_id=1, first_name="Алексей", last_name="Петров")
     Event.create(
         title="Мастер-класс по живописи",
@@ -117,9 +110,9 @@ def test_generate_sqlite_export_unicode_data(temp_db):
         code="unicode_event",
     )
 
-    export_path, _ = generate_sqlite_export()
+    db_bytes, _ = generate_sqlite_export()
 
-    conn = sqlite3.connect(export_path)
+    conn = _load_export_db(db_bytes)
     cursor = conn.cursor()
 
     cursor.execute("SELECT first_name, last_name FROM user")
@@ -133,11 +126,9 @@ def test_generate_sqlite_export_unicode_data(temp_db):
     assert event[1] == "Описание на русском языке"
 
     conn.close()
-    export_path.unlink()
 
 
 def test_generate_sqlite_export_null_values(temp_db):
-    """NULL values are preserved in export."""
     User.create(telegram_id=1, username=None, first_name=None, last_name=None)
     Event.create(
         title="Minimal Event",
@@ -148,9 +139,9 @@ def test_generate_sqlite_export_null_values(temp_db):
         question_type=None,
     )
 
-    export_path, _ = generate_sqlite_export()
+    db_bytes, _ = generate_sqlite_export()
 
-    conn = sqlite3.connect(export_path)
+    conn = _load_export_db(db_bytes)
     cursor = conn.cursor()
 
     cursor.execute("SELECT username, first_name, last_name FROM user")
@@ -162,4 +153,3 @@ def test_generate_sqlite_export_null_values(temp_db):
     assert event == (None, None)
 
     conn.close()
-    export_path.unlink()
