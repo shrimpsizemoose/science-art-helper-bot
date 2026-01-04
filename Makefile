@@ -15,4 +15,9 @@ k8s-logs:
 k8s-logs-follow:
 	kubectl logs -n $(NAMESPACE) -l app=$(APP) -f
 
-.PHONY: k8s-pods k8s-logs k8s-logs-follow
+# Generate visualization from exported database
+# Usage: make visualize-export DB=path/to/export.db [EVENT=code] [OUT=output_dir]
+visualize-export:
+	uv run python scripts/visualize_export.py $(DB) $(if $(EVENT),-e $(EVENT)) $(if $(OUT),-o $(OUT))
+
+.PHONY: k8s-pods k8s-logs k8s-logs-follow visualize-export
