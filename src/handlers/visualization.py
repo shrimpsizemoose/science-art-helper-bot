@@ -19,6 +19,9 @@ async def cmd_visualize(message: Message, config: Config) -> None:
     if not config.is_admin_context(message.chat.id, message.from_user.id):
         return
 
+    args = message.text.split()[1:] if message.text else []
+    local_mode = "local" in args
+
     active_event = Event.get_active()
     archived_events = list(
         Event.select()
@@ -31,13 +34,14 @@ async def cmd_visualize(message: Message, config: Config) -> None:
         await message.answer(config.visualization.no_events)
         return
 
+    mode = "local" if local_mode else "remote"
     buttons = []
     if active_event:
         buttons.append(
             [
                 InlineKeyboardButton(
                     text=f"📌 {active_event.title} (Active)",
-                    callback_data=f"visualize:event:{active_event.id}",
+                    callback_data=f"visualize:{mode}:{active_event.id}",
                 )
             ]
         )
@@ -47,7 +51,7 @@ async def cmd_visualize(message: Message, config: Config) -> None:
             [
                 InlineKeyboardButton(
                     text=f"{i}. {event.title}",
-                    callback_data=f"visualize:event:{event.id}",
+                    callback_data=f"visualize:{mode}:{event.id}",
                 )
             ]
         )
@@ -60,12 +64,16 @@ async def cmd_visualize(message: Message, config: Config) -> None:
     )
 
 
-@router.callback_query(F.data.startswith("visualize:event:"))
+@router.callback_query(F.data.startswith("visualize:"))
 async def handle_visualize_event(callback: CallbackQuery, config: Config) -> None:
     if not config.is_admin_context(callback.message.chat.id, callback.from_user.id):
         return
 
-    event_id = int(callback.data.split(":")[2])
+    parts = callback.data.split(":")
+    mode = parts[1]
+    event_id = int(parts[2])
+    local_mode = mode == "local"
+
     event = Event.get_or_none(Event.id == event_id)
     if not event:
         await callback.answer("Event not found")
@@ -74,7 +82,7 @@ async def handle_visualize_event(callback: CallbackQuery, config: Config) -> Non
     await callback.message.edit_text(config.visualization.generating)
 
     try:
-        result, is_remote = generate_and_upload_visualization(event)
+        result, is_remote = generate_and_upload_visualization(event, local=local_mode)
         if is_remote:
             msg = config.visualization.success.format(url=result)
         else:

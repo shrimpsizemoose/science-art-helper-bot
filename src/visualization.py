@@ -126,14 +126,17 @@ def save_visualization_local(html: str, event: Event) -> Path:
     return filepath
 
 
-def generate_and_upload_visualization(event: Event) -> tuple[str, bool]:
+def generate_and_upload_visualization(event: Event, *, local: bool = False) -> tuple[str, bool]:
     """Returns (url_or_path, is_remote)."""
     html = generate_visualization_html(event)
 
-    if is_r2_configured():
-        filename = f"event_{event.code}_{utcnow().strftime('%Y%m%d_%H%M%S')}.html"
-        url = upload_to_r2(html.encode("utf-8"), filename)
-        return url, True
+    if local:
+        path = save_visualization_local(html, event)
+        return str(path), False
 
-    path = save_visualization_local(html, event)
-    return str(path), False
+    if not is_r2_configured():
+        raise RuntimeError("R2 not configured. Use '/visualize local' for local testing.")
+
+    filename = f"event_{event.code}_{utcnow().strftime('%Y%m%d_%H%M%S')}.html"
+    url = upload_to_r2(html.encode("utf-8"), filename)
+    return url, True

@@ -3,6 +3,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from src.models import Broadcast, Registration, User
 from src.r2_upload import is_r2_configured, upload_to_r2
 from src.visualization import (
@@ -229,9 +231,14 @@ class TestSaveVisualizationLocal:
 
 
 class TestGenerateAndUploadVisualization:
-    def test_saves_locally_when_r2_not_configured(self, temp_db, sample_event):
+    def test_raises_error_when_r2_not_configured(self, temp_db, sample_event):
         with patch.dict(os.environ, {}, clear=True):
-            result, is_remote = generate_and_upload_visualization(sample_event)
+            with pytest.raises(RuntimeError, match="R2 not configured"):
+                generate_and_upload_visualization(sample_event)
+
+    def test_saves_locally_when_local_mode(self, temp_db, sample_event):
+        with patch.dict(os.environ, {}, clear=True):
+            result, is_remote = generate_and_upload_visualization(sample_event, local=True)
 
             assert is_remote is False
             assert Path(result).exists()
