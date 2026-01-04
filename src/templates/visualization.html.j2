@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ event.title }} - Event Visualization</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
     <style>
         :root {
             --bg-primary: #1a1a2e;
@@ -166,6 +167,27 @@
             margin-top: 10px;
         }
 
+        .chart-legend {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 15px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .chart-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .chart-legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
         .broadcast-list {
             max-height: 400px;
             overflow-y: auto;
@@ -212,10 +234,27 @@
             word-break: break-word;
         }
 
-        .broadcast-audience {
+        .broadcast-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
             margin-top: 8px;
             font-size: 0.85rem;
             color: var(--text-secondary);
+        }
+
+        .failure-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .failure-tag {
+            background: var(--bg-primary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: var(--danger);
         }
 
         .generated-at {
@@ -236,6 +275,7 @@
         @media (max-width: 768px) {
             .header h1 { font-size: 1.8rem; }
             .stats-row { grid-template-columns: repeat(2, 1fr); }
+            .broadcast-footer { flex-direction: column; gap: 8px; }
         }
 
         @media (max-width: 480px) {
@@ -283,6 +323,18 @@
             <div class="chart-container">
                 <canvas id="registrationChart"></canvas>
             </div>
+            {% if broadcast_dates %}
+            <div class="chart-legend">
+                <div class="chart-legend-item">
+                    <div class="chart-legend-color" style="background: #e94560;"></div>
+                    <span>Registrations</span>
+                </div>
+                <div class="chart-legend-item">
+                    <div class="chart-legend-color" style="background: #0096c7;"></div>
+                    <span>Broadcasts</span>
+                </div>
+            </div>
+            {% endif %}
         </div>
 
         <div class="card">
@@ -309,9 +361,11 @@
 
         <div class="card">
             <h2 class="card-title">Broadcast History</h2>
-            {% if broadcasts %}
+            {% if broadcasts_with_failures %}
             <div class="broadcast-list">
-                {% for broadcast in broadcasts %}
+                {% for item in broadcasts_with_failures %}
+                {% set broadcast = item.broadcast %}
+                {% set failures = item.failure_details %}
                 <div class="broadcast-item">
                     <div class="broadcast-header">
                         <span class="broadcast-date">{{ broadcast.sent_at.strftime('%Y-%m-%d %H:%M') if broadcast.sent_at.strftime is defined else broadcast.sent_at[:16].replace('T', ' ') }}</span>
@@ -321,7 +375,16 @@
                         </div>
                     </div>
                     <div class="broadcast-message">{{ broadcast.message_text[:500] }}{% if broadcast.message_text|length > 500 %}...{% endif %}</div>
-                    <div class="broadcast-audience">Target: {{ broadcast.target_audience or 'all' }}</div>
+                    <div class="broadcast-footer">
+                        <span>Target: {{ broadcast.target_audience or 'all' }}</span>
+                        {% if failures %}
+                        <div class="failure-details">
+                            {% for reason, count in failures.items() %}
+                            <span class="failure-tag">{{ reason }}: {{ count }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
                 {% endfor %}
             </div>
@@ -360,7 +423,33 @@
         }
 
         const registrationData = {{ registration_timeline | tojson }};
+        const broadcastDates = {{ broadcast_dates | tojson }};
         let chart = null;
+
+        function buildAnnotations() {
+            const annotations = {};
+            const uniqueDates = [...new Set(broadcastDates)];
+
+            uniqueDates.forEach((date, i) => {
+                if (registrationData.labels.includes(date)) {
+                    annotations[`broadcast${i}`] = {
+                        type: 'line',
+                        xMin: date,
+                        xMax: date,
+                        borderColor: '#0096c7',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        label: {
+                            display: true,
+                            content: '📢',
+                            position: 'start',
+                            font: { size: 14 }
+                        }
+                    };
+                }
+            });
+            return annotations;
+        }
 
         function updateChart() {
             const colors = getChartColors();
@@ -395,7 +484,10 @@
                     maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            labels: { color: colors.text }
+                            display: false
+                        },
+                        annotation: {
+                            annotations: buildAnnotations()
                         }
                     },
                     scales: {

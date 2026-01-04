@@ -1,3 +1,4 @@
+import json
 import tempfile
 from collections import defaultdict
 from pathlib import Path
@@ -11,6 +12,26 @@ from src.r2_upload import is_r2_configured, upload_to_r2
 def get_template_env() -> Environment:
     template_dir = Path(__file__).parent / "templates"
     return Environment(loader=FileSystemLoader(template_dir), autoescape=True)
+
+
+def parse_failure_reasons(broadcast: Broadcast) -> dict:
+    """Parse failure_reasons JSON field, handling both string and None."""
+    if not broadcast.failure_reasons:
+        return {}
+    if isinstance(broadcast.failure_reasons, str):
+        try:
+            return json.loads(broadcast.failure_reasons)
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
+
+def get_broadcast_date(broadcast: Broadcast) -> str:
+    """Extract date string from broadcast.sent_at, handling both datetime and string."""
+    sent_at = broadcast.sent_at
+    if hasattr(sent_at, "strftime"):
+        return sent_at.strftime("%Y-%m-%d")
+    return str(sent_at)[:10]
 
 
 def collect_event_data(event: Event) -> dict:
@@ -35,6 +56,18 @@ def collect_event_data(event: Event) -> dict:
 
     timeline = build_registration_timeline(registrations)
 
+    # Collect broadcast dates for timeline markers
+    broadcast_dates = [get_broadcast_date(b) for b in broadcasts]
+
+    # Parse failure reasons for each broadcast
+    broadcasts_with_failures = [
+        {
+            "broadcast": b,
+            "failure_details": parse_failure_reasons(b),
+        }
+        for b in broadcasts
+    ]
+
     return {
         "event": event,
         "stats": {
@@ -48,6 +81,8 @@ def collect_event_data(event: Event) -> dict:
             "delivery_rate": delivery_rate,
         },
         "broadcasts": broadcasts,
+        "broadcasts_with_failures": broadcasts_with_failures,
+        "broadcast_dates": broadcast_dates,
         "registration_timeline": timeline,
         "generated_at": utcnow().strftime("%Y-%m-%d %H:%M UTC"),
     }

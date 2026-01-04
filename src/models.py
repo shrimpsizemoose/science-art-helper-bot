@@ -110,6 +110,7 @@ class Broadcast(BaseModel):
     include_buttons = BooleanField(default=False)
     sent_count = BigIntegerField(default=0)
     failed_count = BigIntegerField(default=0)
+    failure_reasons = TextField(null=True)  # JSON: {"blocked": 5, "deactivated": 2}
     sent_at = DateTimeField(default=utcnow)
 
 

@@ -1,3 +1,5 @@
+import json
+
 from aiogram import Bot, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -177,6 +179,7 @@ async def send_broadcast(
         include_buttons=include_buttons,
         sent_count=sent,
         failed_count=failed,
+        failure_reasons=json.dumps(dict(failure_reasons)) if failure_reasons else None,
     )
 
     failure_text = format_failure_reasons(failure_reasons)
